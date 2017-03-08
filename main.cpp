@@ -75,8 +75,9 @@ struct rock {
 	circle circl;
 	bool alive;
 	int rotation;
-	int speed;
+	float speed;
 	int angle = 0;
+	int stage = 0;
 };
 
 struct globals
@@ -165,8 +166,10 @@ void initNextRock(int index) {
 		new_rock->alive = true;
 		prev_rock->rotation *= 2;
 		new_rock->rotation = prev_rock->rotation;
-		prev_rock->speed += 1;
-		new_rock->speed = prev_rock->speed;
+		prev_rock->stage += 1;
+		new_rock->stage = prev_rock->stage;
+		prev_rock->speed = -5 + prev_rock->stage;
+		new_rock->speed = -5 + new_rock->stage;
 	}
 	else {
 		prev_rock->alive = false;
@@ -206,7 +209,7 @@ void Start()
 	g.rocks[0].circl.x = SCREEN_WIDTH;
 	g.rocks[0].circl.y = SCREEN_HEIGHT / 2;
 	g.rocks[0].speed = 1;
-	g.rocks[0].circl.radius = 100;
+	g.rocks[0].circl.radius = 75;
 	g.rocks[0].rotation = 1;
 			
 }
@@ -311,6 +314,8 @@ void MoveStuff()
 	{
 		if (g.rocks[i].alive)
 		{
+			if (g.rocks[i].speed < g.rocks[i].stage * 2)
+				g.rocks[i].speed += 0.2;
 			g.rocks[i].circl.x -= g.rocks[i].speed;
 			g.rocks[i].angle += g.rocks[i].rotation;
 			if (g.rocks[i].circl.x + g.rocks[i].circl.radius < 0)
