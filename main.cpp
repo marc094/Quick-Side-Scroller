@@ -39,6 +39,7 @@
 #include "SDL\include\SDL.h"
 #include "SDL_image\include\SDL_image.h"
 #include "SDL_mixer\include\SDL_mixer.h"
+#include <math.h>
 
 #pragma comment( lib, "SDL/libx86/SDL2.lib" )
 #pragma comment( lib, "SDL/libx86/SDL2main.lib" )
@@ -52,11 +53,29 @@
 #define SHIP_SPEED 3
 #define NUM_SHOTS 32
 #define SHOT_SPEED 5
+#define MAX_ROCKS 8
+
+
+struct rectangle {
+	int x, y, w, h;
+};
+
+struct circle {
+	int x, y;
+	int radius;
+};
 
 struct projectile
 {
-	int x, y;
+	rectangle rect{ 0, 0, 35, 32 };
 	bool alive;
+};
+
+struct rock {
+	circle circl;
+	bool alive;
+	int rotation;
+	int speed;
 };
 
 struct globals
@@ -75,6 +94,7 @@ struct globals
 	Mix_Chunk* fx_shoot = nullptr;
 	int scroll = 0;
 	projectile shots[NUM_SHOTS];
+	rock rocks[MAX_ROCKS];
 } g; // automatically create an insteance called "g"
 
 // ----------------------------------------------------------------
@@ -104,6 +124,15 @@ void Start()
 	g.ship_x = 100;
 	g.ship_y = SCREEN_HEIGHT / 2;
 	g.fire = g.up = g.down = g.left = g.right = false;
+
+	// Init rocks --
+	g.rocks[0].alive = true;
+	g.rocks[0].circl.x = SCREEN_WIDTH;
+	g.rocks[0].circl.y = SCREEN_HEIGHT / 2;
+	g.rocks[0].speed = 2;
+	g.rocks[0].circl.radius = 100;
+	g.rocks[0].rotation = 1;
+			
 }
 
 // ----------------------------------------------------------------
@@ -177,8 +206,8 @@ void MoveStuff()
 			g.last_shot = 0;
 
 		g.shots[g.last_shot].alive = true;
-		g.shots[g.last_shot].x = g.ship_x + 32;
-		g.shots[g.last_shot].y = g.ship_y;
+		g.shots[g.last_shot].rect.x = g.ship_x + 32;
+		g.shots[g.last_shot].rect.y = g.ship_y;
 		++g.last_shot;
 	}
 
@@ -186,10 +215,19 @@ void MoveStuff()
 	{
 		if(g.shots[i].alive)
 		{
-			if(g.shots[i].x < SCREEN_WIDTH)
-				g.shots[i].x += SHOT_SPEED;
+			if(g.shots[i].rect.x < SCREEN_WIDTH)
+				g.shots[i].rect.x += SHOT_SPEED;
 			else
 				g.shots[i].alive = false;
+
+			for (int j = 0; j < MAX_ROCKS; j++) {
+				if (g.rocks[j].alive) {
+					if (checkCollision(g.rocks[j], g.shots[i])) {
+						g.shots[i].alive = false;
+						initNextRock(g.rocks, j);
+					}
+				}
+			}
 		}
 	}
 }
@@ -219,13 +257,67 @@ void Draw()
 	{
 		if(g.shots[i].alive)
 		{
-			target = { g.shots[i].x, g.shots[i].y, 64, 64 };
+			target = { g.shots[i].rect.x, g.shots[i].rect.y, g.shots[i].rect.w, g.shots[i].rect.h };
 			SDL_RenderCopy(g.renderer, g.shot, nullptr, &target);
 		}
 	}
 
 	// Finally swap buffers
 	SDL_RenderPresent(g.renderer);
+}
+
+bool pointInRectangle(int x, int y, rectangle rect) {
+	if (x < rect.w + rect.x && x > rect.x)
+	{
+		if (y < rect.h + rect.y && y > rect.y)
+			return true;
+	}
+	return false;
+}
+
+bool squareInCirlce(circle circl, rectangle rect) {
+	for (int i = 0; i < 4; i++) {
+		switch (i) {
+		case 0:
+			if (sqrt(pow(rect.x - circl.x, 2) + pow(rect.y - circl.y, 2)) <= circl.radius) {
+				return true;
+			}
+			break;
+		case 1:
+			if (sqrt(pow(rect.x + rect.w - circl.x, 2) + pow(rect.y - circl.y, 2)) <= circl.radius) {
+				return true;
+			}
+			break;
+		case 2:
+			if (sqrt(pow(rect.x + rect.w - circl.x, 2) + pow(rect.y + rect.h - circl.y, 2)) <= circl.radius) {
+				return true;
+			}
+			break;
+		case 3:
+			if (sqrt(pow(rect.x - circl.x, 2) + pow(rect.y + rect. h - circl.y, 2)) <= circl.radius) {
+				return true;
+			}
+			break;
+		}
+	}
+	return false;
+}
+
+bool checkCollision(rock rock, projectile proj)
+{
+	if (pointInRectangle(rock.circl.x, rock.circl.y, proj.rect))
+		return true;
+	if (squareInCirlce(rock.circl, proj.rect))
+		return true;
+	return false;
+}
+
+void initNextRock(rock* array_rocks, int index) {
+	rock* prev_rock = &array_rocks[index];
+	int next_dead = 0;
+	for (int i = 0; i < MAX_ROCKS; i++) {
+
+	}
 }
 
 // ----------------------------------------------------------------
