@@ -16,5 +16,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Defs.h" />
+    <ClInclude Include="vec2.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

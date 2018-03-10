@@ -10,9 +10,11 @@ struct globals
 	bool G_FORCE = false;
 	double timescale = 1;
 	bool reset = false;
-	Rectangle camera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+	dRect camera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 	double cameraSpeed = 0;
 	CelestialBody* trackingBody = nullptr;
+	iRect selectionRect = { 0,0,0,0 };
+	bool drawSelectionRect = false;
 } g; // automatically create an insteance called "g"
 
 bool CircleInCircle(Circle c1, Circle c2)
@@ -22,11 +24,11 @@ bool CircleInCircle(Circle c1, Circle c2)
 	return false;
 }
 
-vec2 Interpolate(vec2 value, vec2 target, double step)
+dvec2 Interpolate(dvec2 value, dvec2 target, double step)
 {
-	vec2 totalDisplacement = target - value;
-	vec2 displacement = totalDisplacement.normalise() * step;
-	vec2 finalVector;
+	dvec2 totalDisplacement = target - value;
+	dvec2 displacement = totalDisplacement.normalise() * step;
+	dvec2 finalVector;
 	if (displacement.length() < totalDisplacement.length())
 	{
 		finalVector = value + displacement;
@@ -74,7 +76,7 @@ void Start()
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	// Create window & renderer
-	g.window = SDL_CreateWindow("QSS - Quick Side Scroller - 0.5", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_BORDERLESS);
+	g.window = SDL_CreateWindow("Stellar", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_BORDERLESS);
 	g.renderer = SDL_CreateRenderer(g.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
 	// Load image lib --
@@ -139,23 +141,31 @@ bool CheckInput()
 		}
 		else if (event.type == SDL_MOUSEBUTTONUP)
 		{
-			vec2 mousePos = { (double)(event.motion.x + g.camera.x), (double)(event.motion.y + g.camera.y) };
+			g.selectionRect.w = max(event.motion.x - g.selectionRect.x, 1);
+			g.selectionRect.h = max(event.motion.y - g.selectionRect.y, 1);
+			g.selectionRect.x += g.camera.x;
+			g.selectionRect.y += g.camera.y;
 			g.trackingBody = nullptr;
 
+			SDL_Rect select = g.selectionRect.toSDL();
 			for (int i = 0; i < MAX_BODIES; ++i)
 			{
 				if (g.rocks[i].active)
 				{
-					if (g.rocks[i].pos.distance(mousePos) <= g.rocks[i].diametre / 2)
+					SDL_Rect rock = { g.rocks[i].circle.x - g.rocks[i].circle.radius, g.rocks[i].circle.y - g.rocks[i].circle.radius , g.rocks[i].circle.radius * 2 , g.rocks[i].circle.radius * 2};
+					SDL_Rect result;
+					if (SDL_IntersectRect(&select, &rock, &result) == SDL_TRUE)
 					{
 						g.trackingBody = &g.rocks[i];
 					}
 				}
 			}
+			g.drawSelectionRect = true;
 		}
 		else if (event.type == SDL_MOUSEBUTTONDOWN)
 		{
-
+			g.selectionRect.x = event.motion.x;
+			g.selectionRect.y = event.motion.y;
 		}
 	}
 
@@ -235,8 +245,8 @@ void Update()
 	if (g.trackingBody != nullptr)
 	{
 		g.cameraSpeed = Interpolate(g.cameraSpeed, CAMERA_MOVEMENT_SPEED, 0.1);
-		vec2 cameraTarget = vec2(g.trackingBody->pos.x - g.camera.w / 2, g.trackingBody->pos.y - g.camera.h / 2);
-		vec2 cameraPos = vec2(g.camera.x, g.camera.y);
+		dvec2 cameraTarget = dvec2(g.trackingBody->pos.x - g.camera.w / 2, g.trackingBody->pos.y - g.camera.h / 2);
+		dvec2 cameraPos = dvec2(g.camera.x, g.camera.y);
 		cameraPos = Interpolate(cameraPos, cameraTarget, g.cameraSpeed);
 		g.camera.x = cameraPos.x;
 		g.camera.y = cameraPos.y;
@@ -280,58 +290,15 @@ void Draw()
 		}
 	}
 
+	if (g.drawSelectionRect)
+	{
+		g.selectionRect.x -= g.camera.x;
+		g.selectionRect.y -= g.camera.y;
+		SDL_RenderDrawRect(g.renderer, &g.selectionRect.toSDL());
+		g.selectionRect = { -1,-1,0,0 };
+		g.drawSelectionRect = false;
+	}
+
 	// Finally swap buffers
 	SDL_RenderPresent(g.renderer);
-}
-
-const vec2& vec2::operator +(const vec2& other) {
-	vec2 n(x + other.x, y + other.y);
-	return n;
-}
-
-const vec2& vec2::operator -(const vec2& other) {
-	vec2 n(x - other.x, y - other.y);
-	return n;
-}
-
-const vec2& vec2::operator +=(const vec2& other) {
-	x += other.x;
-	y += other.y;
-	return(*this);
-}
-
-const vec2& vec2::operator *(double scalar) {
-	vec2 n(x * scalar, y * scalar);
-	return n;
-}
-
-const vec2& vec2::operator*=(double scalar)
-{
-	x *= scalar;
-	y *= scalar;
-	return (*this);
-}
-
-const vec2 & vec2::operator/(double scalar)
-{
-	x /= scalar;
-	y /= scalar;
-	return (*this);
-}
-
-double vec2::distance(const vec2& other) const {
-	return sqrt((other.x - x) * (other.x - x) + (other.y - y) * (other.y - y));
-}
-
-double vec2::length() const {
-	return sqrt(x * x + y * y);
-}
-
-double vec2::angle(const vec2& other) const {
-	return atan2(y - other.y, x - other.x);
-}
-
-vec2 vec2::normalise() const
-{
-	return vec2(x,y) / length();
 }

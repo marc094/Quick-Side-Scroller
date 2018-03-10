@@ -3,31 +3,20 @@
 
 #include <math.h>
 #include "SDL\include\SDL.h"
+#include "vec2.h"
 
+template<class TYPE>
+struct Rect {
+	TYPE x, y, w, h;
 
-struct Rectangle {
-	double x, y, w, h;
+	SDL_Rect toSDL() const {
+		return { (int)x, (int)y, (int)w, (int)h };
+	}
 };
 
-struct vec2
-{
-	vec2() {}
-	vec2(double x, double y) :x(x), y(y) {}
+typedef Rect<double> dRect;
+typedef Rect<int> iRect;
 
-	double x, y;
-
-	const vec2& operator +(const vec2& other);
-	const vec2& operator -(const vec2& other);
-	const vec2& operator +=(const vec2& other);
-	const vec2& operator *(double scalar);
-	const vec2& operator *=(double scalar);
-	const vec2& operator /(double scalar);
-
-	double distance(const vec2& other) const;
-	double length() const;
-	double angle(const vec2& other) const;
-	vec2 normalise() const;
-};
 
 struct Color {
 	unsigned short int r, g, b;
@@ -46,8 +35,8 @@ struct CelestialBody {
 	double density;
 	double diametre;
 	double volume;
-	vec2 speed = vec2(0, 0);
-	vec2 pos;
+	dvec2 speed = dvec2(0, 0);
+	dvec2 pos;
 	bool active = true;
 	Color color;
 };
@@ -72,7 +61,7 @@ void Reset();
 void InitBody(int index);
 bool CheckCollision(CelestialBody b1, CelestialBody b2);
 bool CircleInCircle(Circle c1, Circle c2);
-vec2 Interpolate(vec2 value, vec2 target, double step);
+dvec2 Interpolate(dvec2 value, dvec2 target, double step);
 
 template<class TYPE>
 TYPE Interpolate(TYPE value, TYPE target, TYPE step);
@@ -91,3 +80,9 @@ inline TYPE Interpolate(TYPE value, TYPE target, TYPE step)
 	else finalVector = target;
 	return finalVector;
 }
+
+template<class TYPE>
+TYPE max(TYPE a, TYPE b) { return (a > b) ? a : b; }
+
+template<class TYPE>
+TYPE min(TYPE a, TYPE b) { return (a < b) ? a : b; }
