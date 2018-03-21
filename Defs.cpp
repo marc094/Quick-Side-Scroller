@@ -15,6 +15,7 @@ struct globals
 	CelestialBody* trackingBody = nullptr;
 	iRect selectionRect = { 0,0,0,0 };
 	bool drawSelectionRect = false;
+	unsigned int totalActiveBodies = 0;
 } g; // automatically create an insteance called "g"
 
 bool CircleInCircle(Circle c1, Circle c2)
@@ -55,8 +56,8 @@ void InitBody(int index) {
 	cel_body->density = cel_body->mass / cel_body->volume;
 
 	//double r = rand() % SCREEN_WIDTH;
-	cel_body->pos.x = rand() % SCREEN_WIDTH;
-	cel_body->pos.y = rand() % SCREEN_HEIGHT;
+	cel_body->pos.x = rand() % (3 * SCREEN_WIDTH) - SCREEN_WIDTH;
+	cel_body->pos.y = rand() % (3 * SCREEN_HEIGHT) - SCREEN_HEIGHT;
 	cel_body->speed.x = 0;
 	cel_body->speed.y = 0;
 	/*float factor = (float)M_PI / (MAX_BODIES * 0.5f);
@@ -126,7 +127,8 @@ bool CheckInput()
 			switch (event.key.keysym.sym)
 			{
 			case SDLK_ESCAPE: ret = false; break;
-			case SDLK_SPACE: g.timescale += .01; break;
+			case SDLK_KP_PLUS: g.timescale += .1; break;
+			case SDLK_KP_MINUS: g.timescale -= .1; break;
 			case SDLK_g: g.G_FORCE = !g.G_FORCE; break;
 			case SDLK_r: g.reset = true;
 			case SDLK_RIGHT: g.camera.x+=10; break;
@@ -139,15 +141,21 @@ bool CheckInput()
 		{
 			ret = false;
 		}
+		else if (event.type == SDL_MOUSEBUTTONDOWN)
+		{
+			g.selectionRect.x = event.motion.x;
+			g.selectionRect.y = event.motion.y;
+			g.drawSelectionRect = true;
+		}
 		else if (event.type == SDL_MOUSEBUTTONUP)
 		{
-			g.selectionRect.w = max(event.motion.x - g.selectionRect.x, 1);
-			g.selectionRect.h = max(event.motion.y - g.selectionRect.y, 1);
-			g.selectionRect.x += g.camera.x;
-			g.selectionRect.y += g.camera.y;
+			SDL_Rect select = g.selectionRect.Normalised().toSDL();
+			select.x += g.camera.x;
+			select.y += g.camera.y;
+			if (select.w == 0) select.w++;
+			if (select.h == 0) select.h++;
 			g.trackingBody = nullptr;
 
-			SDL_Rect select = g.selectionRect.toSDL();
 			for (int i = 0; i < MAX_BODIES; ++i)
 			{
 				if (g.rocks[i].active)
@@ -160,12 +168,15 @@ bool CheckInput()
 					}
 				}
 			}
-			g.drawSelectionRect = true;
+			g.drawSelectionRect = false;
+			g.selectionRect = { -1,-1,0,0 };
 		}
-		else if (event.type == SDL_MOUSEBUTTONDOWN)
+		else if (event.type == SDL_MOUSEMOTION)
 		{
-			g.selectionRect.x = event.motion.x;
-			g.selectionRect.y = event.motion.y;
+			if (g.drawSelectionRect) {
+				g.selectionRect.w += event.motion.xrel;
+				g.selectionRect.h += event.motion.yrel;
+			}
 		}
 	}
 
@@ -178,18 +189,19 @@ void Update()
 	if (g.reset)
 		Reset();
 
+	unsigned int activeBodies = 0;
+
 	for (int i = 0; i < MAX_BODIES; ++i)
 	{
 		if (g.rocks[i].active)
 		{
+			activeBodies++;
 			for (int j = i + 1; j < MAX_BODIES; ++j)
 			{
 				if (g.rocks[j].active)
 				{
-					bool col = sqrt(pow(g.rocks[i].circle.x - g.rocks[j].circle.x, 2) + pow(g.rocks[i].circle.y - g.rocks[j].circle.y, 2)) < (g.rocks[i].circle.radius + g.rocks[j].circle.radius) * 0.8;
+					bool col = sqrt(pow(g.rocks[i].circle.x - g.rocks[j].circle.x, 2) + pow(g.rocks[i].circle.y - g.rocks[j].circle.y, 2)) < (g.rocks[i].circle.radius + g.rocks[j].circle.radius)/* * 0.8*/;
 					if (col) {
-						double riSpeed = g.rocks[i].speed.length();
-						double rjSpeed = g.rocks[j].speed.length();
 						if (g.rocks[i].mass >= g.rocks[j].mass)
 						{
 							g.rocks[j].active = false;
@@ -235,12 +247,15 @@ void Update()
 			g.rocks[i].pos.x += (g.rocks[i].speed.x * g.timescale);
 			g.rocks[i].pos.y += (g.rocks[i].speed.y * g.timescale);
 
-			//g.rocks[i].speed *= (.999999999999 * g.timescale);
+			//Friction (buggy)
+			//g.rocks[i].speed = g.rocks[i].speed - (g.rocks[i].speed * (.00000000001 * g.timescale));
 
 			g.rocks[i].circle.x = g.rocks[i].pos.x;
 			g.rocks[i].circle.y = g.rocks[i].pos.y;
 		}
 	}
+
+	g.totalActiveBodies = activeBodies;
 
 	if (g.trackingBody != nullptr)
 	{
@@ -261,13 +276,13 @@ void Draw()
 	SDL_RenderClear(g.renderer);
 
 	SDL_SetRenderDrawColor(g.renderer, 255, 255, 255, 255);
+	SDL_SetRenderDrawBlendMode(g.renderer, SDL_BLENDMODE_BLEND);
 
 	for (int i = 0; i < MAX_BODIES; ++i)
 	{
 		if (!g.rocks[i].active)
 			continue;
 
-		SDL_SetRenderDrawBlendMode(g.renderer, SDL_BLENDMODE_BLEND);
 		//SDL_SetRenderDrawColor(g.renderer, g.rocks[i].color.r, g.rocks[i].color.g, g.rocks[i].color.b, 255);
 
 		if (g.rocks[i].diametre > 1) {
@@ -292,11 +307,7 @@ void Draw()
 
 	if (g.drawSelectionRect)
 	{
-		g.selectionRect.x -= g.camera.x;
-		g.selectionRect.y -= g.camera.y;
 		SDL_RenderDrawRect(g.renderer, &g.selectionRect.toSDL());
-		g.selectionRect = { -1,-1,0,0 };
-		g.drawSelectionRect = false;
 	}
 
 	// Finally swap buffers
