@@ -287,17 +287,18 @@ void Draw()
 
 		if (g.rocks[i].diametre > 1) {
 			int result = -1;
+			int point_number = min((int)g.rocks[i].diametre + 1, CIRCLE_POINTS);
 			SDL_Point points[CIRCLE_POINTS];
 
-			float factor = (float)M_PI / (CIRCLE_POINTS / 2.f);
+			float factor = (float)M_PI / (point_number / 2.f);
 
-			for (unsigned int j = 0; j < CIRCLE_POINTS; ++j)
+			for (unsigned int j = 0; j < point_number; ++j)
 			{
 				points[j].x = (int)(g.rocks[i].pos.x + (g.rocks[i].diametre / 2) * cos(j * factor)) - g.camera.x;
 				points[j].y = (int)(g.rocks[i].pos.y + (g.rocks[i].diametre / 2) * sin(j * factor)) - g.camera.y;
 			}
 
-			result = SDL_RenderDrawPoints(g.renderer, points, CIRCLE_POINTS);
+			result = SDL_RenderDrawPoints(g.renderer, points, point_number);
 		}
 		else {
 			SDL_Point p = { g.rocks[i].pos.x - g.camera.x, g.rocks[i].pos.y - g.camera.y };
