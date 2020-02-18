@@ -1,6 +1,9 @@
 #include "Defs.h"
 #include <time.h>
 #include <random>
+#include "Timer.h"
+#include <windows.h>
+#include <string>
 
 struct globals
 {
@@ -8,14 +11,18 @@ struct globals
 	SDL_Renderer* renderer = nullptr;
 	CelestialBody rocks[MAX_BODIES];
 	bool G_FORCE = false;
-	double timescale = 1;
+	double timescale = INITIAL_TIME_SCALE;
 	bool reset = false;
 	dRect camera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 	double cameraSpeed = 0;
 	CelestialBody* trackingBody = nullptr;
 	iRect selectionRect = { 0,0,0,0 };
 	bool drawSelectionRect = false;
-	unsigned int totalActiveBodies = 0;
+	unsigned int totalActiveBodies = 0u;
+	Timer frameTimeTimer;
+	float deltaTime = 0.f;
+	float realDeltaTime = 0.f;
+	double scale = 1.0;
 } g; // automatically create an insteance called "g"
 
 bool CircleInCircle(Circle c1, Circle c2)
@@ -28,7 +35,7 @@ bool CircleInCircle(Circle c1, Circle c2)
 dvec2 Interpolate(dvec2 value, dvec2 target, double step)
 {
 	dvec2 totalDisplacement = target - value;
-	dvec2 displacement = totalDisplacement.normalise() * step;
+	dvec2 displacement = totalDisplacement.normalised() * step;
 	dvec2 finalVector;
 	if (displacement.length() < totalDisplacement.length())
 	{
@@ -49,15 +56,21 @@ void InitBody(int index) {
 	CelestialBody* cel_body = &g.rocks[index];
 
 	cel_body->mass = rand() % (MAX_MASS - MIN_MASS + 1) + MIN_MASS;
-	cel_body->diametre = rand() % (MAX_DIAMETRE - MIN_DIAMETRE + 1) + MIN_DIAMETRE;
-	double pi = M_PI;
+	//cel_body->diametre = rand() % (MAX_DIAMETRE - MIN_DIAMETRE + 1) + MIN_DIAMETRE;
+	//double pi = M_PI;
 
-	cel_body->volume = pow(cel_body->diametre * 0.5, 2) * pi;
-	cel_body->density = cel_body->mass / cel_body->volume;
+	cel_body->density = rand() % (MAX_DENSITY - MIN_DENSITY + 1) + MIN_DENSITY;
+	cel_body->diametre = 2 * sqrt(cel_body->mass / (M_PI*cel_body->density));
+
+	cel_body->area = (cel_body->diametre * 0.5) * (cel_body->diametre * 0.5) * M_PI;
+	//cel_body->density = cel_body->mass / cel_body->area;
 
 	//double r = rand() % SCREEN_WIDTH;
-	cel_body->pos.x = rand() % (3 * SCREEN_WIDTH) - SCREEN_WIDTH;
-	cel_body->pos.y = rand() % (3 * SCREEN_HEIGHT) - SCREEN_HEIGHT;
+	dvec2 spawnZone = dvec2(SPAWN_SQUARE_DIMS, SPAWN_SQUARE_DIMS);
+	cel_body->pos.x = SCREEN_WIDTH / 2;
+	cel_body->pos.y = SCREEN_HEIGHT / 2;
+	cel_body->pos.x += rand() % (int)spawnZone.x - (int)(spawnZone.x / 2);
+	cel_body->pos.y += rand() % (int)spawnZone.y - (int)(spawnZone.y / 2);
 	cel_body->speed.x = 0;
 	cel_body->speed.y = 0;
 	/*float factor = (float)M_PI / (MAX_BODIES * 0.5f);
@@ -65,8 +78,8 @@ void InitBody(int index) {
 	cel_body->pos.y = (double)((SCREEN_HEIGHT / 2) + (400) * sin(index * factor));*/
 	cel_body->color = { 255, 255, 255 };
 
-	cel_body->circle.x = cel_body->pos.x;
-	cel_body->circle.y = cel_body->pos.y;
+	cel_body->circle.x = (int)cel_body->pos.x;
+	cel_body->circle.y = (int)cel_body->pos.y;
 	cel_body->circle.radius = cel_body->diametre / 2;
 	cel_body->active = true;
 }
@@ -99,7 +112,15 @@ void Start()
 
 void Reset()
 {
-	Start();
+	for (unsigned int i = 0; i < MAX_BODIES; i++)
+	{
+		InitBody(i);
+	}
+
+	g.camera.x = 0;
+	g.camera.y = 0;
+	g.trackingBody = nullptr;
+
 	g.reset = false;
 }
 
@@ -129,12 +150,19 @@ bool CheckInput()
 			case SDLK_ESCAPE: ret = false; break;
 			case SDLK_KP_PLUS: g.timescale += .1; break;
 			case SDLK_KP_MINUS: g.timescale -= .1; break;
-			case SDLK_g: g.G_FORCE = !g.G_FORCE; break;
+			case SDLK_g: g.G_FORCE = true; break;
 			case SDLK_r: g.reset = true;
 			case SDLK_RIGHT: g.camera.x+=10; break;
 			case SDLK_LEFT: g.camera.x-=10; break;
 			case SDLK_UP: g.camera.y-=10; break;
 			case SDLK_DOWN: g.camera.y+=10; break;
+			}
+		}
+		else if (event.type == SDL_KEYUP)
+		{
+			switch (event.key.keysym.sym)
+			{
+			case SDLK_g: g.G_FORCE = false; break;
 			}
 		}
 		else if (event.type == SDL_QUIT)
@@ -150,8 +178,8 @@ bool CheckInput()
 		else if (event.type == SDL_MOUSEBUTTONUP)
 		{
 			SDL_Rect select = g.selectionRect.Normalised().toSDL();
-			select.x += g.camera.x;
-			select.y += g.camera.y;
+			select.x += (int)g.camera.x;
+			select.y += (int)g.camera.y;
 			if (select.w == 0) select.w++;
 			if (select.h == 0) select.h++;
 			g.trackingBody = nullptr;
@@ -160,7 +188,7 @@ bool CheckInput()
 			{
 				if (g.rocks[i].active)
 				{
-					SDL_Rect rock = { g.rocks[i].circle.x - g.rocks[i].circle.radius, g.rocks[i].circle.y - g.rocks[i].circle.radius , g.rocks[i].circle.radius * 2 , g.rocks[i].circle.radius * 2};
+					SDL_Rect rock = { g.rocks[i].circle.x - (int)g.rocks[i].circle.radius, g.rocks[i].circle.y - (int)g.rocks[i].circle.radius , (int)(g.rocks[i].circle.radius * 2) , (int)(g.rocks[i].circle.radius * 2)};
 					SDL_Rect result;
 					if (SDL_IntersectRect(&select, &rock, &result) == SDL_TRUE)
 					{
@@ -184,8 +212,33 @@ bool CheckInput()
 }
 
 // ----------------------------------------------------------------
+void PreUpdate()
+{
+	g.realDeltaTime = g.frameTimeTimer.ReadSec();
+	g.deltaTime = g.realDeltaTime * g.timescale;
+
+	g.frameTimeTimer.Start();
+
+	OutputDebugString("----------- Starting frame -----------\n");
+
+	for (int i = 0; i < MAX_BODIES; i++)
+	{
+		if (g.rocks[i].active)
+		{
+			g.rocks[i].force.x = 0.0;
+			g.rocks[i].force.y = 0.0;
+		}
+	}
+
+	std::string output = "Time after force reset: " + std::to_string(g.frameTimeTimer.Readms()) + "\n";
+	OutputDebugString(output.c_str());
+}
+
 void Update()
 {
+	std::string output = "Time at Update begin(): " + std::to_string(g.frameTimeTimer.Readms()) + "\n";
+	OutputDebugString(output.c_str());
+
 	if (g.reset)
 		Reset();
 
@@ -200,17 +253,21 @@ void Update()
 			{
 				if (g.rocks[j].active)
 				{
-					bool col = sqrt(pow(g.rocks[i].circle.x - g.rocks[j].circle.x, 2) + pow(g.rocks[i].circle.y - g.rocks[j].circle.y, 2)) < (g.rocks[i].circle.radius + g.rocks[j].circle.radius)/* * 0.8*/;
+					//Removed sqrt() and instead squared the radii sum
+					bool col = (g.rocks[i].circle.x - g.rocks[j].circle.x) * (g.rocks[i].circle.x - g.rocks[j].circle.x)
+						+ (g.rocks[i].circle.y - g.rocks[j].circle.y) * (g.rocks[i].circle.y - g.rocks[j].circle.y)
+						< (g.rocks[i].circle.radius + g.rocks[j].circle.radius) * (g.rocks[i].circle.radius + g.rocks[j].circle.radius)/* * 0.8*/;
+
 					if (col) {
 						if (g.rocks[i].mass >= g.rocks[j].mass)
 						{
 							g.rocks[j].active = false;
 							long double total_mass = (long double)(g.rocks[i].mass + g.rocks[j].mass);
-							g.rocks[i].density = (g.rocks[i].density * (g.rocks[i].mass / total_mass)) + (g.rocks[j].density * (g.rocks[j].mass / total_mass));
-							g.rocks[i].mass = total_mass;
-							g.rocks[i].diametre = 2 * sqrt((g.rocks[i].mass) / (M_PI * g.rocks[i].density));
-							g.rocks[i].circle.radius = g.rocks[i].diametre / 2;
-							g.rocks[i].volume = M_PI * pow(g.rocks[i].circle.radius, 2);
+							g.rocks[i].density = (g.rocks[i].density * g.rocks[i].mass + g.rocks[j].density * g.rocks[j].mass) / total_mass;
+							g.rocks[i].mass = (unsigned long long)total_mass;
+							g.rocks[i].area = g.rocks[i].mass / g.rocks[i].density;
+							g.rocks[i].circle.radius = sqrt(g.rocks[i].area / M_PI);
+							g.rocks[i].diametre = 2 * g.rocks[i].circle.radius;
 							g.rocks[i].speed.x = (((g.rocks[i].speed.x * g.rocks[i].mass) + (g.rocks[j].speed.x * g.rocks[j].mass)) / (g.rocks[j].mass + g.rocks[i].mass));
 							g.rocks[i].speed.y = (((g.rocks[i].speed.y * g.rocks[i].mass) + (g.rocks[j].speed.y * g.rocks[j].mass)) / (g.rocks[j].mass + g.rocks[i].mass));
 						}
@@ -218,40 +275,46 @@ void Update()
 						{
 							g.rocks[i].active = false;
 							long double total_mass = (long double)(g.rocks[i].mass + g.rocks[j].mass);
-							g.rocks[j].density = (g.rocks[i].density * (g.rocks[i].mass / total_mass)) + (g.rocks[j].density * (g.rocks[j].mass / total_mass));
-							g.rocks[j].mass = total_mass;
-							g.rocks[j].diametre = 2 * sqrt((g.rocks[j].mass) / (M_PI * g.rocks[j].density));
-							g.rocks[j].circle.radius = g.rocks[j].diametre / 2;
-							g.rocks[j].volume = M_PI * pow(g.rocks[j].circle.radius, 2);
+							g.rocks[j].density = (g.rocks[j].density * g.rocks[j].mass + g.rocks[i].density * g.rocks[i].mass) / total_mass;
+							g.rocks[j].mass = (unsigned long long)total_mass;
+							g.rocks[j].area = g.rocks[j].mass / g.rocks[j].density;
+							g.rocks[j].circle.radius = sqrt(g.rocks[j].area / M_PI);
+							g.rocks[j].diametre = 2 * g.rocks[j].circle.radius;
 							g.rocks[j].speed.x = (((g.rocks[i].speed.x * g.rocks[i].mass) + (g.rocks[j].speed.x * g.rocks[j].mass)) / (g.rocks[j].mass + g.rocks[i].mass));
 							g.rocks[j].speed.y = (((g.rocks[i].speed.y * g.rocks[i].mass) + (g.rocks[j].speed.y * g.rocks[j].mass)) / (g.rocks[j].mass + g.rocks[i].mass));
 						}
 					}
-					double G = 6.673 * pow(10, -11);
-					double gForce = ((G * g.rocks[j].mass * g.rocks[i].mass) / pow(g.rocks[i].pos.distance(g.rocks[j].pos), 2));
-					double angle = g.rocks[i].pos.angle(g.rocks[j].pos);
-					g.rocks[i].speed.x -= ((gForce / g.rocks[i].mass) * cos(angle)) * g.timescale;
-					g.rocks[i].speed.y -= ((gForce / g.rocks[i].mass) * sin(angle)) * g.timescale;
-					g.rocks[j].speed.x += ((gForce / g.rocks[j].mass) * cos(angle)) * g.timescale;
-					g.rocks[j].speed.y += ((gForce / g.rocks[j].mass) * sin(angle)) * g.timescale;
+					else
+					{
+						dvec2 distance = g.rocks[j].pos - g.rocks[i].pos;
+						double gForce = ((G_CONSTANT * g.rocks[j].mass * g.rocks[i].mass) / distance.sqrLength());
+
+						distance.normalise();
+
+						g.rocks[i].force += distance * gForce;
+						g.rocks[j].force -= distance * gForce;
+					}
 				}
 			}
 
 			if (g.G_FORCE)
 			{
-				double angle = g.rocks[i].pos.angle({SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2});
-				g.rocks[i].speed.x -= (1000000 / g.rocks[i].mass) * cos(angle);// *g.timescale;
-				g.rocks[i].speed.y -= (1000000 / g.rocks[i].mass) * sin(angle);// *g.timescale;
+				dvec2 screenCentre = dvec2(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+				dvec2 delta = g.rocks[i].pos - screenCentre;
+				delta.normalise();
+				g.rocks[i].speed -= delta * ((100000000000. / g.rocks[i].mass) * g.deltaTime);
 			}
 
-			g.rocks[i].pos.x += (g.rocks[i].speed.x * g.timescale);
-			g.rocks[i].pos.y += (g.rocks[i].speed.y * g.timescale);
+			dvec2 acceleration = (g.rocks[i].force / g.rocks[i].mass);
+			g.rocks[i].speed += acceleration * g.deltaTime;
+
+			g.rocks[i].pos += (g.rocks[i].speed * g.deltaTime);
 
 			//Friction (buggy)
 			//g.rocks[i].speed = g.rocks[i].speed - (g.rocks[i].speed * (.00000000001 * g.timescale));
 
-			g.rocks[i].circle.x = g.rocks[i].pos.x;
-			g.rocks[i].circle.y = g.rocks[i].pos.y;
+			g.rocks[i].circle.x = (int)g.rocks[i].pos.x;
+			g.rocks[i].circle.y = (int)g.rocks[i].pos.y;
 		}
 	}
 
@@ -265,13 +328,22 @@ void Update()
 		cameraPos = Interpolate(cameraPos, cameraTarget, g.cameraSpeed);
 		g.camera.x = cameraPos.x;
 		g.camera.y = cameraPos.y;
+
+		if (!g.trackingBody->active)
+			g.trackingBody = nullptr;
 	}
 	else g.cameraSpeed = 0;
+
+	output = "Time at Update() end: " + std::to_string(g.frameTimeTimer.Readms()) + "\n";
+	OutputDebugString(output.c_str());
 }
 
 // ----------------------------------------------------------------
 void Draw()
 {
+	std::string output = "Time at Draw() begin: " + std::to_string(g.frameTimeTimer.Readms()) + "\n";
+	OutputDebugString(output.c_str());
+
 	SDL_SetRenderDrawColor(g.renderer, 0, 0, 0, 255);
 	SDL_RenderClear(g.renderer);
 
@@ -287,7 +359,7 @@ void Draw()
 
 		if (g.rocks[i].diametre > 1) {
 			int result = -1;
-			int point_number = min((int)g.rocks[i].diametre + 1, CIRCLE_POINTS);
+			uint point_number = min((uint)g.rocks[i].diametre + 1, (uint)CIRCLE_POINTS);
 			SDL_Point points[CIRCLE_POINTS];
 
 			float factor = (float)M_PI / (point_number / 2.f);
@@ -306,6 +378,16 @@ void Draw()
 		}
 	}
 
+	if (g.trackingBody != nullptr)
+	{
+		dvec2 cameraTarget = dvec2(g.trackingBody->pos.x - g.camera.x, g.trackingBody->pos.y - g.camera.y);
+		SDL_SetRenderDrawColor(g.renderer, 255, 0, 0, 255);
+		SDL_RenderDrawLine(g.renderer, cameraTarget.x, cameraTarget.y, cameraTarget.x + (g.trackingBody->force.x/g.trackingBody->mass) * 40, cameraTarget.y + (g.trackingBody->force.y/g.trackingBody->mass) * 40);
+		SDL_SetRenderDrawColor(g.renderer, 0, 255, 0, 255);
+		SDL_RenderDrawLine(g.renderer, cameraTarget.x, cameraTarget.y, cameraTarget.x + g.trackingBody->speed.x, cameraTarget.y + g.trackingBody->speed.y);
+		SDL_SetRenderDrawColor(g.renderer, 255, 255, 255, 255);
+	}
+
 	if (g.drawSelectionRect)
 	{
 		SDL_RenderDrawRect(g.renderer, &g.selectionRect.toSDL());
@@ -313,4 +395,7 @@ void Draw()
 
 	// Finally swap buffers
 	SDL_RenderPresent(g.renderer);
+
+	output = "Time at Draw() end: " + std::to_string(g.frameTimeTimer.Readms()) + "\n";
+	OutputDebugString(output.c_str());
 }

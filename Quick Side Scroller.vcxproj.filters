@@ -13,11 +13,19 @@
     <ClCompile Include="Defs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="InputDevice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Defs.h" />
     <ClInclude Include="vec2.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="InputDevice.h" />
+    <ClInclude Include="Timer.h" />
   </ItemGroup>
 </Project>

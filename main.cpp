@@ -21,6 +21,7 @@ int main(int argc, char *args[])
 
 	while(CheckInput())
 	{
+		PreUpdate();
 		Update();
 		Draw();
 	}
