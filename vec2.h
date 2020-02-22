@@ -1,6 +1,8 @@
 #ifndef __VEC2_H__
 #define __VEC2_H__
 
+#include "Defs.h"
+
 template<class TYPE>
 struct vec2
 {
@@ -19,15 +21,15 @@ struct vec2
 		return n;
 	}
 
-	vec2 vec2::operator *(TYPE scalar) const
+	vec2 vec2::operator *(TYPE sc) const
 	{
-		dvec2 n(x * scalar, y * scalar);
+		svec2 n(x * sc, y * sc);
 		return n;
 	}
 
-	vec2 vec2::operator/(TYPE scalar) const
+	vec2 vec2::operator/(TYPE sc) const
 	{
-		dvec2 n(x / scalar, y / scalar);
+		svec2 n(x / sc, y / sc);
 		return n;
 	}
 
@@ -45,36 +47,36 @@ struct vec2
 		return(*this);
 	}
 
-	const vec2& vec2::operator*=(TYPE scalar) {
-		x *= scalar;
-		y *= scalar;
+	const vec2& vec2::operator*=(TYPE sc) {
+		x *= sc;
+		y *= sc;
 		return (*this);
 	}
 
-	const vec2 & vec2::operator/=(TYPE scalar)
+	const vec2 & vec2::operator/=(TYPE sc)
 	{
-		x /= scalar;
-		y /= scalar;
+		x /= sc;
+		y /= sc;
 		return (*this);
 	}
 
-	double vec2::distance(const vec2& other) const {
+	scalar vec2::distance(const vec2& other) const {
 		return sqrt((other.x - x) * (other.x - x) + (other.y - y) * (other.y - y));
 	}
 
-	double vec2::sqrDistance(const vec2& other) const {
+	scalar vec2::sqrDistance(const vec2& other) const {
 		return (other.x - x) * (other.x - x) + (other.y - y) * (other.y - y);
 	}
 
-	double vec2::length() const {
+	scalar vec2::length() const {
 		return sqrt(x * x + y * y);
 	}
 
-	double vec2::sqrLength() const {
+	scalar vec2::sqrLength() const {
 		return x * x + y * y;
 	}
 
-	double vec2::angle(const vec2& other) const {
+	scalar vec2::angle(const vec2& other) const {
 		return atan2(y - other.y, x - other.x);
 	}
 
@@ -85,13 +87,13 @@ struct vec2
 
 	void vec2::normalise()
 	{
-		double l = length();
+		scalar l = max(length(), .0000000000000000001);
 		x /= l;
 		y /= l;
 	}
 };
 
-typedef vec2<double> dvec2;
+typedef vec2<scalar> svec2;
 typedef vec2<int> ivec2;
 
 #endif
