@@ -29,6 +29,11 @@ void Camera::SetTarget(PhysBody* object)
 	target = object;
 }
 
+void Camera::SetSpeed(scalar s)
+{
+	speed = s;
+}
+
 scalar Camera::GetScale()
 {
 	return scale;
@@ -42,6 +47,11 @@ svec2 Camera::GetPosition()
 PhysBody* Camera::GetTarget()
 {
 	return target;
+}
+
+scalar Camera::GetSpeed()
+{
+	return speed;
 }
 
 svec2 Camera::ScreenToWorld(svec2 v)

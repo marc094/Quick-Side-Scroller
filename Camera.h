@@ -16,11 +16,12 @@ public:
 	void SetScale(scalar);
 	void SetPosition(svec2);
 	void SetTarget(PhysBody*);
+	void SetSpeed(scalar);
 
 	scalar GetScale();
 	svec2 GetPosition();
-	iRect GetRect();
 	PhysBody* GetTarget();
+	scalar GetSpeed();
 
 	svec2 ScreenToWorld(svec2);
 	iRect ScreenToWorld(iRect);

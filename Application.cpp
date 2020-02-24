@@ -70,7 +70,7 @@ void Application::Start()
 
 	// Create window & renderer
 	window = SDL_CreateWindow("Stellar", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_BORDERLESS);
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
 	camera = new Camera();
 
@@ -214,6 +214,7 @@ bool Application::CheckInput()
 						SDL_Rect result;
 						if (SDL_IntersectRect(&(SDL_Rect)select, &rock, &result) == SDL_TRUE)
 						{
+							camera->SetSpeed(0.0);
 							camera->SetTarget(&rocks[i]);
 							std::string output = "Target position X:" + std::to_string(rocks[i].pos.x) + ", Y: " + std::to_string(rocks[i].pos.y) + "\n";
 							OutputDebugString(output.c_str());
@@ -241,8 +242,6 @@ bool Application::CheckInput()
 			{
 				svec2 displacement = svec2(-event.motion.xrel, -event.motion.yrel);
 				camera->SetPosition(camera->GetPosition() + displacement / camera->GetScale());
-				std::string output = "Displacement X: " + std::to_string(displacement.x) + ", Y: " + std::to_string(displacement.y) + "\n";
-				OutputDebugString(output.c_str());
 			}
 		}
 		else if (event.type == SDL_MOUSEWHEEL)
@@ -255,9 +254,6 @@ bool Application::CheckInput()
 			{
 				camera->SetScale(camera->GetScale() * (scalar)1.1);
 			}
-			
-			std::string output = "Scale: " + std::to_string(camera->GetScale()) + "\n";
-			OutputDebugString(output.c_str());
 		}
 	}
 
@@ -273,7 +269,7 @@ void Application::PreUpdate()
 	frameTimeTimer.Start();
 
 	std::string output = "realDeltaTime: " + std::to_string(realDeltaTime) + "\n";
-	//OutputDebugString(output.c_str());
+	OutputDebugString(output.c_str());
 
 	//OutputDebugString("----------- Starting frame -----------\n");
 
