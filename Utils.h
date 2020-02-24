@@ -13,8 +13,8 @@ struct Color
 struct Circle
 {
 	Circle() {}
-	Circle(int x, int y, int diametre) :x(x), y(y), radius((scalar)diametre / 2) {}
-	int x, y;
+	Circle(sint64 x, sint64 y, scalar radius) :x(x), y(y), radius(radius) {}
+	sint64 x, y;
 	scalar radius;
 };
 

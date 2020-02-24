@@ -2,14 +2,18 @@
 #define __VEC2_H__
 
 #include "Defs.h"
+#include "SDL\include\SDL_rect.h"
 
 template<class TYPE>
 struct vec2
 {
 	vec2() {}
 	vec2(TYPE x, TYPE y) :x(x), y(y) {}
+	explicit vec2(SDL_FPoint p) :x(p.x), y(p.y) {}
 
 	TYPE x, y;
+
+	explicit operator SDL_FPoint() const { return { (float)x, (float)y }; }
 
 	vec2 vec2::operator +(const vec2& other) const {
 		vec2 n(x + other.x, y + other.y);

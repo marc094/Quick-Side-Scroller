@@ -6,31 +6,38 @@
 #define SCREEN_HEIGHT 1080
 #define HALF_SCREEN_WIDTH 960
 #define HALF_SCREEN_HEIGHT 540
-#define MAX_BODIES 5000
+#define MAX_BODIES 10000
 #define MAX_MASS 1000000000000
 #define MIN_MASS 100000000000
 #define MIN_DIAMETRE 3
 #define MAX_DIAMETRE 10
 #define MAX_DENSITY 500000000000
 #define MIN_DENSITY 50000000000
-#define CIRCLE_POINTS 120
-#define MAX_CAMERA_MOVEMENT_SPEED (scalar)540
-#define CAMERA_ACCELERATION (scalar)1
+#define MAX_CIRCLE_POINTS 120
+#define MAX_CAMERA_MOVEMENT_SPEED (scalar)1024
+#define CAMERA_ACCELERATION (scalar)10
 #define G_CONSTANT 0.00000000006673
-#define INITIAL_TIME_SCALE 0
+#define INITIAL_TIME_SCALE 0.1
 #define SPAWN_RADIUS 1000
-#define FORCE_FACTOR_DRAW 40
+#define TRAIL_LENGTH 512
+#define TRAIL_UPDATE_FREQUENCY 8
 
 #define max(a,b) (a>b?a:b)
 #define min(a,b) (a<b?a:b)
 
-#define USE_FLOAT
+//#define USE_FLOAT
 
-typedef unsigned int uint;
-typedef unsigned char uint8;
-typedef unsigned short uint16;
-typedef unsigned int uint32;
-typedef unsigned long uint64;
+typedef unsigned int		uint;
+typedef unsigned char		uint8;
+typedef unsigned short		uint16;
+typedef unsigned long		uint32;
+typedef unsigned long long	uint64;
+
+typedef signed int			sint;
+typedef signed char			sint8;
+typedef signed short		sint16;
+typedef signed long			sint32;
+typedef signed long long	sint64;
 
 #ifdef USE_FLOAT
 typedef float scalar;

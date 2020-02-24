@@ -21,7 +21,7 @@ struct Rect
 		return r;
 	}
 
-	SDL_Rect toSDL() const
+	explicit operator SDL_Rect() const
 	{
 		return { (int)x, (int)y, (int)w, (int)h };
 	}
@@ -29,6 +29,12 @@ struct Rect
 	Rect operator *(scalar sc) const
 	{
 		Rect n = { x * sc, y * sc, w * sc, h * sc };
+		return n;
+	}
+
+	Rect operator /(scalar sc) const
+	{
+		Rect n = { x / sc, y / sc, w / sc, h / sc };
 		return n;
 	}
 };

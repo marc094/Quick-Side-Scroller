@@ -1,12 +1,13 @@
 #ifndef __PHYSBODY_H__
 #define __PHYSBODY_H__
 #include "Utils.h"
+#include "SDL\include\SDL_Rect.h"
 
 class PhysBody
 {
 public:
 	Circle circle;
-	unsigned long long mass;
+	uint64 mass;
 	scalar density;
 	scalar diametre;
 	scalar area;
@@ -16,9 +17,17 @@ public:
 	Color color;
 	svec2 force;
 
+	svec2 trail[TRAIL_LENGTH];
+	SDL_FPoint sortedTrailArr[TRAIL_LENGTH];
+	sint16 trailIndex = 0;
+	uint8 trailRecordIndex = 0;
+
 public:
 	PhysBody();
 	virtual ~PhysBody();
+
+	void UpdateTrail();
+	SDL_FPoint* sortedTrail();
 };
 
 #endif

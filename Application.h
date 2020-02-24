@@ -32,11 +32,15 @@ private:
 	PhysBody* rocks = nullptr;
 	Timer frameTimeTimer;
 	bool G_FORCE = false;
-	scalar timescale = 0;
+	scalar timescale = INITIAL_TIME_SCALE;
 	bool reset = false;
 	iRect selectionRect = { 0,0,0,0 };
 	bool drawSelectionRect = false;
+	bool movementDrag = false;
 	uint totalActiveBodies = 0u;
+
+	bool paused = true;
+	bool doStep = false;
 };
 
 #endif
