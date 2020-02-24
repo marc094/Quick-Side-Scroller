@@ -96,7 +96,7 @@ void Camera::Update()
 	if (target != nullptr)
 	{
 		speed = Utils::Interpolate(speed, MAX_CAMERA_MOVEMENT_SPEED, CAMERA_ACCELERATION);
-		SetPosition(Utils::Interpolate(position, target->pos, speed * max(deltaTime, realDeltaTime)));
+		SetPosition(Utils::Interpolate(position, target->pos, speed / scale * max(deltaTime, realDeltaTime)));
 
 		if (!target->active)
 			target = nullptr;

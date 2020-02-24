@@ -1,5 +1,6 @@
 #include "PhysBody.h"
 
+extern float deltaTime;
 
 PhysBody::PhysBody()
 {
@@ -12,15 +13,16 @@ PhysBody::~PhysBody()
 
 void PhysBody::UpdateTrail()
 {
-	if (trailRecordIndex % TRAIL_UPDATE_FREQUENCY == 0)
+	if (trailTimer > TRAIL_UPDATE_FREQUENCY)
 	{
+		trailTimer = 0.f;
 		trailIndex--;
 		if (trailIndex < 0)
 			trailIndex = TRAIL_LENGTH - 1;
 
 		trail[trailIndex] = pos;
 	}
-	trailRecordIndex++;
+	trailTimer += deltaTime;
 }
 
 SDL_FPoint * PhysBody::sortedTrail()

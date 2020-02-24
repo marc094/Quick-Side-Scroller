@@ -21,6 +21,7 @@ public:
 	SDL_FPoint sortedTrailArr[TRAIL_LENGTH];
 	sint16 trailIndex = 0;
 	uint8 trailRecordIndex = 0;
+	float trailTimer = 0;
 
 public:
 	PhysBody();
