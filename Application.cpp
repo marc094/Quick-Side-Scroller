@@ -42,7 +42,7 @@ void Application::InitBody(int index)
 	body->pos.y = SCREEN_HEIGHT / 2;*/
 	body->pos.x = sin(angle) * distance;
 	body->pos.y = cos(angle) * distance;
-	scalar speed = (rand() % 50000 + 600000000000) / body->mass;
+	scalar speed = (rand() % 50000000 + 2000000000) * distance / body->mass;
 	body->speed.x = speed * sin(angle + M_PI / 2);
 	body->speed.y = speed * cos(angle + M_PI / 2);
 	/*float factor = (float)M_PI / (MAX_BODIES * 0.5f);
@@ -319,29 +319,29 @@ void Application::Update()
 
 						if (col)
 						{
-							if (rocks[i].mass >= rocks[j].mass)
+							if ((rocks[i].mass >= rocks[j].mass && &rocks[j] != camera->GetTarget()) || &rocks[i] == camera->GetTarget())
 							{
 								rocks[j].active = false;
 								long double total_mass = (long double)(rocks[i].mass + rocks[j].mass);
 								rocks[i].density = (rocks[i].density * rocks[i].mass + rocks[j].density * rocks[j].mass) / total_mass;
+								rocks[i].speed = ((rocks[i].speed * rocks[i].mass) + (rocks[j].speed * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass);
+								rocks[i].pos = ((rocks[i].pos * rocks[i].mass) + (rocks[j].pos * rocks[j].mass)) / (rocks[i].mass + rocks[j].mass);
 								rocks[i].mass = (unsigned long long)total_mass;
 								rocks[i].area = rocks[i].mass / rocks[i].density;
 								rocks[i].circle.radius = sqrt(rocks[i].area / M_PI);
 								rocks[i].diametre = 2 * rocks[i].circle.radius;
-								rocks[i].speed.x = (((rocks[i].speed.x * rocks[i].mass) + (rocks[j].speed.x * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass));
-								rocks[i].speed.y = (((rocks[i].speed.y * rocks[i].mass) + (rocks[j].speed.y * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass));
 							}
 							else
 							{
 								rocks[i].active = false;
 								long double total_mass = (long double)(rocks[i].mass + rocks[j].mass);
 								rocks[j].density = (rocks[j].density * rocks[j].mass + rocks[i].density * rocks[i].mass) / total_mass;
+								rocks[j].speed = ((rocks[i].speed * rocks[i].mass) + (rocks[j].speed * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass);
+								rocks[j].pos = ((rocks[i].pos * rocks[i].mass) + (rocks[j].pos * rocks[j].mass)) / (rocks[i].mass + rocks[j].mass);
 								rocks[j].mass = (unsigned long long)total_mass;
 								rocks[j].area = rocks[j].mass / rocks[j].density;
 								rocks[j].circle.radius = sqrt(rocks[j].area / M_PI);
 								rocks[j].diametre = 2 * rocks[j].circle.radius;
-								rocks[j].speed.x = (((rocks[i].speed.x * rocks[i].mass) + (rocks[j].speed.x * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass));
-								rocks[j].speed.y = (((rocks[i].speed.y * rocks[i].mass) + (rocks[j].speed.y * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass));
 							}
 						}
 						else
