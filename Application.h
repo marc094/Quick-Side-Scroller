@@ -3,6 +3,7 @@
 
 #include "Timer.h"
 #include "Rect.h"
+#include "vec2.h"
 
 struct SDL_Window;
 struct SDL_Renderer;
@@ -24,6 +25,10 @@ public:
 	void Draw();
 	void Reset();
 	void Finish();
+
+	svec2 GenerateInitialPosition();
+
+	PhysBody* GetHeaviest();
 
 private:
 	Camera * camera = nullptr;

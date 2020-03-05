@@ -34,20 +34,14 @@ void Application::InitBody(int index)
 	body->area = (body->diametre * 0.5) * (body->diametre * 0.5) * M_PI;
 	//cel_body->density = cel_body->mass / cel_body->area;
 
-	//double r = rand() % SCREEN_WIDTH;
-	scalar angle = rand() % 360;
-	angle *= (2 * M_PI / 360);
-	scalar distance = rand() % SPAWN_RADIUS;
-	/*body->pos.x = SCREEN_WIDTH / 2;
-	body->pos.y = SCREEN_HEIGHT / 2;*/
-	body->pos.x = sin(angle) * distance;
-	body->pos.y = cos(angle) * distance;
-	scalar speed = (rand() % 50000000 + 2000000000) * distance / body->mass;
+	body->pos = GenerateInitialPosition();
+	/*scalar speed = (rand() % (int)(STARTING_SPEED_MAGNITUDE * 0.1) + STARTING_SPEED_MAGNITUDE) * sqrt(distance) / body->mass;
 	body->speed.x = speed * sin(angle + M_PI / 2);
-	body->speed.y = speed * cos(angle + M_PI / 2);
+	body->speed.y = speed * cos(angle + M_PI / 2);*/
 	/*float factor = (float)M_PI / (MAX_BODIES * 0.5f);
 	cel_body->pos.x = (double)((SCREEN_WIDTH / 2) + (400) * cos(index * factor));
 	cel_body->pos.y = (double)((SCREEN_HEIGHT / 2) + (400) * sin(index * factor));*/
+	body->speed = sZero;
 	body->color = { 255, 255, 255 };
 
 	body->circle.x = (int)body->pos.x;
@@ -81,7 +75,7 @@ void Application::Start()
 	/*Mix_Init(MIX_INIT_OGG);
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);*/
 
-	rocks = (PhysBody*)malloc(MAX_BODIES * sizeof(PhysBody));
+	rocks = ARR_DECL(PhysBody, MAX_BODIES);
 
 	// Init bodies --
 	for (unsigned int i = 0; i < MAX_BODIES; i++)
@@ -117,11 +111,75 @@ void Application::Finish()
 	/*Mix_CloseAudio();
 	Mix_Quit();
 	IMG_Quit();*/
-	free(rocks);
+	ARR_FREE(rocks);
 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+}
+
+svec2 Application::GenerateInitialPosition()
+{
+	svec2 position;
+	switch (INITIAL_DISTRIBUTION)
+	{
+	case InitialDistribution::RADIAL_CENTRE_DENSER:
+	{
+		scalar angle = rand() % 360;
+		angle *= (2 * M_PI / 360);
+		scalar distance = rand() % SPAWN_RADIUS;
+		position.x = sin(angle) * distance;
+		position.y = cos(angle) * distance;
+		break;
+	}
+	case InitialDistribution::RADIAL_UNIFORM:
+	{
+		bool correct = false;
+		while (!correct)
+		{
+			position.x = rand() % (2 * SPAWN_RADIUS) - SPAWN_RADIUS;
+			position.y = rand() % (2 * SPAWN_RADIUS) - SPAWN_RADIUS;
+
+			if (svec2::sDistance(sZero, position) < SPAWN_RADIUS)
+				correct = true;
+		}
+		break;
+	}
+	case InitialDistribution::SQUARE_CENTRE_DENSER:
+	{
+		/*bool correct = false;
+		while (!correct)
+		{
+			scalar angle = rand() % 360;
+			angle *= (2 * M_PI / 360);
+			scalar distance = rand() % SPAWN_RADIUS;
+			position.x = sin(angle) * distance;
+			position.y = cos(angle) * distance;
+		}*/
+		break;
+	}
+	case InitialDistribution::SQUARE_UNIFORM:
+	{
+		break;
+	}
+	}
+
+	return position;
+}
+
+PhysBody * Application::GetHeaviest()
+{
+	uint64 mass = 0;
+	int heaviestIndex = 0;
+	for (int i = 0; i < MAX_BODIES; i++)
+	{
+		if (rocks[i].mass > mass)
+		{
+			heaviestIndex = i;
+			mass = rocks[i].mass;
+		}
+	}
+	return &rocks[heaviestIndex];
 }
 
 // ----------------------------------------------------------------
@@ -149,6 +207,7 @@ bool Application::CheckInput()
 			case SDLK_w: camera->Move({ 0.0, -1000.0 }); break;
 			case SDLK_s: camera->Move({ 0.0, 1000.0 }); break;
 			case SDLK_SPACE: paused = !paused; break;
+			case SDLK_b: camera->SetTarget(GetHeaviest()); break;
 			}
 		}
 		else if (event.type == SDL_KEYUP)
@@ -302,24 +361,30 @@ void Application::Update()
 		doStep = false;
 
 		unsigned int activeBodies = 0;
+		scalar gForce = 0;
+		svec2 distance;
+		svec2 acceleration;
+		PhysBody* target = camera->GetTarget();
+		bool collision = false;
+		int i, j;
 
-		for (int i = 0; i < MAX_BODIES; ++i)
+		for (i = 0; i < MAX_BODIES; ++i)
 		{
 			if (rocks[i].active)
 			{
 				activeBodies++;
-				for (int j = i + 1; j < MAX_BODIES; ++j)
+				for (j = i + 1; j < MAX_BODIES; ++j)
 				{
 					if (rocks[j].active)
 					{
 						//Removed sqrt() and instead squared the radii sum
-						bool col = (rocks[i].circle.x - rocks[j].circle.x) * (rocks[i].circle.x - rocks[j].circle.x)
+						collision = (rocks[i].circle.x - rocks[j].circle.x) * (rocks[i].circle.x - rocks[j].circle.x)
 							+ (rocks[i].circle.y - rocks[j].circle.y) * (rocks[i].circle.y - rocks[j].circle.y)
 							< (rocks[i].circle.radius + rocks[j].circle.radius) * (rocks[i].circle.radius + rocks[j].circle.radius);
 
-						if (col)
+						if (collision)
 						{
-							if ((rocks[i].mass >= rocks[j].mass && &rocks[j] != camera->GetTarget()) || &rocks[i] == camera->GetTarget())
+							if ((rocks[i].mass >= rocks[j].mass && &rocks[j] != target) || &rocks[i] == target)
 							{
 								rocks[j].active = false;
 								long double total_mass = (long double)(rocks[i].mass + rocks[j].mass);
@@ -346,9 +411,9 @@ void Application::Update()
 						}
 						else
 						{
-							svec2 distance = rocks[j].pos - rocks[i].pos;
+							distance = rocks[j].pos - rocks[i].pos;
 
-							double gForce = ((G_CONSTANT * rocks[j].mass * rocks[i].mass) / max(distance.sqrLength(), 1.0));
+							gForce = ((G_CONSTANT * rocks[j].mass * rocks[i].mass) / max(distance.sqrLength(), 1.0));
 
 							distance.normalise();
 
@@ -367,7 +432,7 @@ void Application::Update()
 					rocks[i].speed -= delta * ((100000000000. / rocks[i].mass) * deltaTime);
 				}
 
-				svec2 acceleration = (rocks[i].force / rocks[i].mass);
+				acceleration = (rocks[i].force / rocks[i].mass);
 				rocks[i].speed += acceleration * deltaTime;
 
 				rocks[i].pos += (rocks[i].speed * deltaTime);

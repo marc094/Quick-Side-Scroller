@@ -64,8 +64,14 @@ struct vec2
 		return (*this);
 	}
 
-	scalar vec2::distance(const vec2& other) const {
+	scalar vec2::distance(const vec2& other) const
+	{
 		return sqrt((other.x - x) * (other.x - x) + (other.y - y) * (other.y - y));
+	}
+
+	static scalar vec2::sDistance(const vec2& a, const vec2& b)
+	{
+		return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 	}
 
 	scalar vec2::sqrDistance(const vec2& other) const {
@@ -99,5 +105,8 @@ struct vec2
 
 typedef vec2<scalar> svec2;
 typedef vec2<int> ivec2;
+
+const static svec2 sZero = { 0.0,0.0 };
+const static ivec2 iZero = { 0,0 };
 
 #endif
