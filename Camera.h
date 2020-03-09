@@ -28,6 +28,8 @@ public:
 	const svec2 WorldToScreen(svec2);
 	iRect WorldToScreen(iRect);
 
+	iRect GetRect();
+
 	void Move(svec2);
 
 	void Update();
@@ -36,6 +38,7 @@ private:
 	svec2 position;
 	scalar scale = 1.0;
 	scalar speed = 0.0;
+	sint16 cullingMargin = 0;
 
 	PhysBody* target = nullptr;
 };

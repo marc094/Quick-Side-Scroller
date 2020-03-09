@@ -4,6 +4,8 @@
 #include "Timer.h"
 #include "Rect.h"
 #include "vec2.h"
+#include <list>
+#include <random>
 
 struct SDL_Window;
 struct SDL_Renderer;
@@ -16,7 +18,7 @@ public:
 	Application();
 	virtual ~Application();
 
-	void InitBody(int i);
+	void InitBody(PhysBody*);
 
 	void Start();
 	bool CheckInput();
@@ -31,10 +33,14 @@ public:
 	PhysBody* GetHeaviest();
 
 private:
-	Camera * camera = nullptr;
-	SDL_Window* window = nullptr;
-	SDL_Renderer* renderer = nullptr;
+	std::mt19937_64 rng;
+
+	Camera * camera = null;
+	SDL_Window* window = null;
+	SDL_Renderer* renderer = null;
 	PhysBody* rocks = nullptr;
+	//std::list<PhysBody*> rocks;
+	//std::list<PhysBody*> trash;
 	Timer frameTimeTimer;
 	bool G_FORCE = false;
 	scalar timescale = INITIAL_TIME_SCALE;

@@ -9,7 +9,7 @@ struct vec2
 {
 	vec2() {}
 	vec2(TYPE x, TYPE y) :x(x), y(y) {}
-	explicit vec2(SDL_FPoint p) :x(p.x), y(p.y) {}
+	explicit vec2(const SDL_FPoint & p) :x(p.x), y(p.y) {}
 
 	TYPE x, y;
 

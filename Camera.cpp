@@ -7,6 +7,7 @@ extern float realDeltaTime;
 Camera::Camera()
 {
 	SetPosition({ 0,0 });
+	cullingMargin = CAMERA_CULLING_MARGIN;
 }
 
 
@@ -84,6 +85,11 @@ iRect Camera::WorldToScreen(iRect r)
 	r.w *= scale;
 	r.h *= scale;
 	return r;
+}
+
+iRect Camera::GetRect()
+{
+	return iRect((int)(position.x - ((HALF_SCREEN_WIDTH + cullingMargin) / scale)), (int)(position.y - ((HALF_SCREEN_HEIGHT + cullingMargin) / scale)), (SCREEN_WIDTH + 2* cullingMargin) / scale, (SCREEN_HEIGHT + 2* cullingMargin) / scale);
 }
 
 void Camera::Move(svec2 vector)

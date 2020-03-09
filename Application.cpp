@@ -1,6 +1,5 @@
 #include "Application.h"
 #include <time.h>
-#include <random>
 #include <windows.h>
 #include <string>
 #include "PhysBody.h"
@@ -13,6 +12,7 @@ extern float realDeltaTime;
 
 Application::Application()
 {
+	rng.seed((unsigned long long)time(null));
 }
 
 
@@ -21,14 +21,16 @@ Application::~Application()
 }
 
 
-void Application::InitBody(int index)
+void Application::InitBody(PhysBody* body)
 {
-	PhysBody* body = &rocks[index];
+	static int index = 0;
+	std::uniform_int_distribution<std::mt19937_64::result_type> distributionMass(MIN_MASS, MAX_MASS);
+	std::uniform_int_distribution<std::mt19937_64::result_type> distributionDensity(MIN_DENSITY, MAX_DENSITY);
 
-	body->mass = rand() % (MAX_MASS - MIN_MASS + 1) + MIN_MASS;
+	body->mass = distributionMass(rng);
 	//cel_body->diametre = rand() % (MAX_DIAMETRE - MIN_DIAMETRE + 1) + MIN_DIAMETRE;
 
-	body->density = rand() % (MAX_DENSITY - MIN_DENSITY + 1) + MIN_DENSITY;
+	body->density = distributionDensity(rng);
 	body->diametre = 2 * sqrt(body->mass / (M_PI*body->density));
 
 	body->area = (body->diametre * 0.5) * (body->diametre * 0.5) * M_PI;
@@ -42,6 +44,8 @@ void Application::InitBody(int index)
 	cel_body->pos.x = (double)((SCREEN_WIDTH / 2) + (400) * cos(index * factor));
 	cel_body->pos.y = (double)((SCREEN_HEIGHT / 2) + (400) * sin(index * factor));*/
 	body->speed = sZero;
+	body->force = sZero;
+
 	body->color = { 255, 255, 255 };
 
 	body->circle.x = (int)body->pos.x;
@@ -49,7 +53,7 @@ void Application::InitBody(int index)
 	body->circle.radius = body->diametre / 2;
 	body->active = true;
 	body->trailIndex = 0;
-	body->trailRecordIndex = index % TRAIL_UPDATE_FREQUENCY;
+	body->trailRecordIndex = index++ % TRAIL_UPDATE_FREQUENCY;
 
 	for (int i = 0; i < TRAIL_LENGTH; i++)
 	{
@@ -76,11 +80,18 @@ void Application::Start()
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);*/
 
 	rocks = ARR_DECL(PhysBody, MAX_BODIES);
+	//rocks = std::list<PhysBody*>();
+	/*for (int i = 0; i < MAX_BODIES; i++)
+		rocks.push_back(new PhysBody());*/
 
 	// Init bodies --
-	for (unsigned int i = 0; i < MAX_BODIES; i++)
+	/*for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
 	{
-		InitBody(i);
+		InitBody(*it);
+	}*/
+	for (int i = 0; i < MAX_BODIES; i++)
+	{
+		InitBody(&rocks[i]);
 	}
 
 	camera->SetScale(1.0);
@@ -91,9 +102,23 @@ void Application::Start()
 
 void Application::Reset()
 {
-	for (unsigned int i = 0; i < MAX_BODIES; i++)
+	/*for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
 	{
-		InitBody(i);
+		delete[] *it;
+	}
+	rocks.clear();
+
+	for (int i = 0; i < MAX_BODIES; i++)
+		rocks.push_back(new PhysBody());
+
+	for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
+	{
+		InitBody(*it);
+	}*/
+
+	for (int i = 0; i < MAX_BODIES; i++)
+	{
+		InitBody(&rocks[i]);
 	}
 
 	camera->SetPosition({ 0.0, 0.0 });
@@ -112,6 +137,11 @@ void Application::Finish()
 	Mix_Quit();
 	IMG_Quit();*/
 	ARR_FREE(rocks);
+	/*for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
+	{
+		delete *it;
+	}
+	rocks.clear();*/
 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
@@ -170,16 +200,24 @@ svec2 Application::GenerateInitialPosition()
 PhysBody * Application::GetHeaviest()
 {
 	uint64 mass = 0;
-	int heaviestIndex = 0;
+	PhysBody* heaviest = nullptr;
+	/*for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
+	{
+		if ((*it)->mass > mass)
+		{
+			heaviest = *it;
+			mass = (*it)->mass;
+		}
+	}*/
 	for (int i = 0; i < MAX_BODIES; i++)
 	{
 		if (rocks[i].mass > mass)
 		{
-			heaviestIndex = i;
+			heaviest = &rocks[i];
 			mass = rocks[i].mass;
 		}
 	}
-	return &rocks[heaviestIndex];
+	return heaviest;
 }
 
 // ----------------------------------------------------------------
@@ -195,8 +233,20 @@ bool Application::CheckInput()
 			switch (event.key.keysym.sym)
 			{
 			case SDLK_ESCAPE: ret = false; break;
-			case SDLK_KP_PLUS: timescale *= (scalar)1.1; break;
-			case SDLK_KP_MINUS: timescale /= (scalar)1.1; break;
+			case SDLK_KP_PLUS:
+			{
+				timescale *= (scalar)1.1;
+				std::string output = "Time Scale: " + std::to_string(timescale) + "\n";
+				OutputDebugString(output.c_str()); 
+				break;
+			}
+			case SDLK_KP_MINUS:
+			{
+				timescale /= (scalar)1.1;
+				std::string output = "Time Scale: " + std::to_string(timescale) + "\n";
+				OutputDebugString(output.c_str());
+				break;
+			}
 			case SDLK_g: G_FORCE = true; break;
 			case SDLK_q: doStep = true; break;
 			case SDLK_r: reset = true; break;
@@ -234,6 +284,18 @@ bool Application::CheckInput()
 				movementDrag = true;
 				break;
 			case 3:
+				/*for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
+				{
+					if (!(*it)->active)
+					{
+						svec2 worldPos = { (scalar)event.motion.x , (scalar)event.motion.y };
+						(*it)->pos = camera->ScreenToWorld(worldPos);
+						(*it)->speed.x = 0;
+						(*it)->speed.y = 0;
+						(*it)->active = true;
+						break;
+					}
+				}*/
 				for (int i = 0; i < MAX_BODIES; i++)
 				{
 					if (!rocks[i].active)
@@ -254,24 +316,46 @@ bool Application::CheckInput()
 			switch (event.button.button)
 			{
 			case 1:
+			{
 				iRect select = camera->ScreenToWorld(selectionRect.Normalised());
 
 				if (select.w == 0) select.w++;
 				if (select.h == 0) select.h++;
 				camera->SetTarget(nullptr);
 
-				for (int i = 0; i < MAX_BODIES; ++i)
+				/*for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
 				{
-					if (rocks[i].active)
+					if ((*it)->active)
 					{
 						SDL_Rect rock = {
-							(int)(rocks[i].circle.x - (int)rocks[i].circle.radius),
-							(int)(rocks[i].circle.y - (int)rocks[i].circle.radius),
-							(int)(rocks[i].circle.radius * 2),
-							(int)(rocks[i].circle.radius * 2)
+							(int)((*it)->circle.x - (int)(*it)->circle.radius),
+							(int)((*it)->circle.y - (int)(*it)->circle.radius),
+							max((int)((*it)->circle.radius * 2), 1),
+							max((int)((*it)->circle.radius * 2), 1)
 						};
 						SDL_Rect result;
 						if (SDL_IntersectRect(&(SDL_Rect)select, &rock, &result) == SDL_TRUE)
+						{
+							camera->SetSpeed(0.0);
+							camera->SetTarget(*it);
+							std::string output = "Target position X:" + std::to_string((*it)->pos.x) + ", Y: " + std::to_string((*it)->pos.y) + "\n";
+							OutputDebugString(output.c_str());
+							break;
+						}
+					}
+				}*/
+
+				for (int i = 0; i < MAX_BODIES; i++)
+				{
+					if (rocks[i].active)
+					{
+						iRect rock = {
+							(int)(rocks[i].circle.x - (int)rocks[i].circle.radius),
+							(int)(rocks[i].circle.y - (int)rocks[i].circle.radius),
+							max((int)(rocks[i].circle.radius * 2), 1),
+							max((int)(rocks[i].circle.radius * 2), 1)
+						};
+						if (Utils::IntersectRect(select, rock))
 						{
 							camera->SetSpeed(0.0);
 							camera->SetTarget(&rocks[i]);
@@ -285,6 +369,7 @@ bool Application::CheckInput()
 				drawSelectionRect = false;
 				selectionRect = { -1,-1,0,0 };
 				break;
+			}
 			case 2:
 				movementDrag = false;
 				break;
@@ -313,6 +398,9 @@ bool Application::CheckInput()
 			{
 				camera->SetScale(camera->GetScale() * (scalar)1.1);
 			}
+
+			//std::string output = "Scale: " + std::to_string(camera->GetScale()) + "\n";
+			//OutputDebugString(output.c_str());
 		}
 	}
 
@@ -332,17 +420,23 @@ void Application::PreUpdate()
 
 	//OutputDebugString("----------- Starting frame -----------\n");
 
+	/*for (std::list<PhysBody*>::iterator it = trash.begin(); it != trash.end(); it++)
+	{
+		rocks.remove(*it);
+		delete[] * it;
+	}
+	trash.clear();
+
 	if (!paused || doStep)
 	{
-		for (int i = 0; i < MAX_BODIES; i++)
+		for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
 		{
-			if (rocks[i].active)
+			if ((*it)->active)
 			{
-				rocks[i].force.x = 0.0;
-				rocks[i].force.y = 0.0;
+				(*it)->force = svec2(0.0, 0.0);
 			}
 		}
-	}
+	}*/
 	/*std::string output = "Time after force reset: " + std::to_string(frameTimeTimer.Readms()) + "\n";
 	OutputDebugString(output.c_str());*/
 }
@@ -413,7 +507,7 @@ void Application::Update()
 						{
 							distance = rocks[j].pos - rocks[i].pos;
 
-							gForce = ((G_CONSTANT * rocks[j].mass * rocks[i].mass) / max(distance.sqrLength(), 1.0));
+							gForce = ((G_CONSTANT * rocks[j].mass * rocks[i].mass) / max(distance.sqrLength(), rocks[i].circle.radius + rocks[j].circle.radius));
 
 							distance.normalise();
 
@@ -443,6 +537,8 @@ void Application::Update()
 
 				rocks[i].circle.x = (int)rocks[i].pos.x;
 				rocks[i].circle.y = (int)rocks[i].pos.y;
+
+				rocks[i].force = { 0.0,0.0 };
 			}
 		}
 
@@ -472,58 +568,65 @@ void Application::Draw()
 	scalar factor = 1.f;
 	scalar cameraScale = camera->GetScale();
 	svec2 cameraPos = camera->GetPosition();
-	SDL_Rect rockRect, result;
+	iRect rockRect, cameraRect;
 	rockRect.w = 1;
 	rockRect.h = 1;
+	cameraRect = camera->GetRect();
+	PhysBody* body = camera->GetTarget();
+	int roundedRadius = 0;
 
-	for (int i = 0; i < MAX_BODIES; ++i)
+	if (body != nullptr)
 	{
-		if (!rocks[i].active)
-			continue;
-
-		rockRect.x = rocks[i].pos.x;
-		rockRect.y = rocks[i].pos.y;
-		/*if (!SDL_IntersectRect(&camera->GetRect().toSDL(), &rockRect, &result) != SDL_TRUE)
-			continue;*/
-
-		//SDL_SetRenderDrawColor(renderer, rocks[i].color.r, rocks[i].color.g, rocks[i].color.b, 255);
-
-		if (rocks[i].diametre * cameraScale > 1)
-		{
-			point_number = min((uint)(rocks[i].diametre * cameraScale) + 1, (uint)MAX_CIRCLE_POINTS);
-
-			factor = (float)M_PI / (point_number / 2.f);
-
-			for (unsigned int j = 0; j < point_number; ++j)
-			{
-				points[j].x = ((rocks[i].pos.x + (rocks[i].diametre / 2) * cos(j * factor)) - cameraPos.x) * cameraScale + HALF_SCREEN_WIDTH;
-				points[j].y = ((rocks[i].pos.y + (rocks[i].diametre / 2) * sin(j * factor)) - cameraPos.y) * cameraScale + HALF_SCREEN_HEIGHT;
-			}
-			SDL_RenderDrawPointsF(renderer, points, point_number);
-		}
-		else
-		{
-			SDL_RenderDrawPoint(renderer, (rocks[i].pos.x - cameraPos.x) * cameraScale + HALF_SCREEN_WIDTH, (rocks[i].pos.y - cameraPos.y) * cameraScale + HALF_SCREEN_HEIGHT);
-		}
-	}
-
-	PhysBody* cameraTarget = camera->GetTarget();
-
-	if (cameraTarget != nullptr)
-	{
-		svec2 targetPosRelative = (cameraTarget->pos - cameraPos) * cameraScale + svec2(HALF_SCREEN_WIDTH, HALF_SCREEN_HEIGHT);
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + (cameraTarget->force.x / cameraTarget->mass) * cameraScale, targetPosRelative.y + (cameraTarget->force.y / cameraTarget->mass) * cameraScale);
-		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + camera->GetTarget()->speed.x * cameraScale, targetPosRelative.y + camera->GetTarget()->speed.y * cameraScale);
+		svec2 targetPosRelative = (body->pos - cameraPos) * cameraScale + svec2(HALF_SCREEN_WIDTH, HALF_SCREEN_HEIGHT);
+		/*SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + (body->force.x / body->mass) * cameraScale, targetPosRelative.y + (body->force.y / body->mass) * cameraScale);
+		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);*/
+		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + body->speed.x * cameraScale, targetPosRelative.y + body->speed.y * cameraScale);
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-		SDL_FPoint* trailPoints = cameraTarget->sortedTrail();
+		SDL_FPoint* trailPoints = body->sortedTrail();
 		for (int i = 0; i < TRAIL_LENGTH; i++)
 		{
 			trailPoints[i] = (SDL_FPoint)camera->WorldToScreen((svec2)trailPoints[i]);
 		}
 		SDL_RenderDrawLinesF(renderer, trailPoints, TRAIL_LENGTH);
+	}
+
+	body = null;
+
+	for (int i = 0; i < MAX_BODIES; i++)
+	{
+		if (!rocks[i].active)
+			continue;
+
+		body = &rocks[i];
+
+		roundedRadius = max((int)round(body->circle.radius), 1);
+		rockRect.x = body->pos.x - roundedRadius;
+		rockRect.y = body->pos.y - roundedRadius;
+		rockRect.w = rockRect.h = 2 * roundedRadius;
+		if (Utils::IntersectRect(cameraRect, rockRect))
+		{
+			//SDL_SetRenderDrawColor(renderer, rocks[i].color.r, rocks[i].color.g, rocks[i].color.b, 255);
+
+			if (body->diametre * cameraScale > 1)
+			{
+				point_number = min((uint)(body->diametre * cameraScale) + 1, (uint)MAX_CIRCLE_POINTS);
+
+				factor = (float)M_PI / (point_number / 2.f);
+
+				for (unsigned int j = 0; j < point_number; ++j)
+				{
+					points[j].x = ((body->pos.x + (body->diametre / 2) * cos(j * factor)) - cameraPos.x) * cameraScale + HALF_SCREEN_WIDTH;
+					points[j].y = ((body->pos.y + (body->diametre / 2) * sin(j * factor)) - cameraPos.y) * cameraScale + HALF_SCREEN_HEIGHT;
+				}
+				SDL_RenderDrawPointsF(renderer, points, point_number);
+			}
+			else
+			{
+				SDL_RenderDrawPoint(renderer, (body->pos.x - cameraPos.x) * cameraScale + HALF_SCREEN_WIDTH, (body->pos.y - cameraPos.y) * cameraScale + HALF_SCREEN_HEIGHT);
+			}
+		}
 	}
 
 	if (drawSelectionRect)

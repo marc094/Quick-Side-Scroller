@@ -3,6 +3,7 @@
 
 #include "Defs.h"
 #include "vec2.h"
+#include "Rect.h"
 #include <cmath>
 
 struct Color
@@ -24,5 +25,6 @@ namespace Utils
 	svec2 Interpolate(svec2 value, svec2 target, scalar step);
 	scalar Interpolate(scalar value, scalar target, scalar step);
 	int Interpolate(int value, int target, scalar step);
+	bool IntersectRect(const iRect &, const iRect &);
 }
 #endif

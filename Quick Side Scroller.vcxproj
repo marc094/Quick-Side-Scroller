@@ -181,6 +181,7 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Defs.h" />
     <ClInclude Include="InputDevice.h" />
+    <ClInclude Include="LinkedList.h" />
     <ClInclude Include="PhysBody.h" />
     <ClInclude Include="Rect.h" />
     <ClInclude Include="Timer.h" />

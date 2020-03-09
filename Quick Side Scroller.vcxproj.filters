@@ -60,5 +60,6 @@
     <ClInclude Include="Rect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LinkedList.h" />
   </ItemGroup>
 </Project>
