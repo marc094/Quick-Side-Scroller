@@ -7,43 +7,37 @@ bool Utils::CircleInCircle(Circle c1, Circle c2)
 	return false;
 }
 
-svec2 Utils::Interpolate(svec2 value, svec2 target, scalar step)
+svec2 Utils::MoveTowards(svec2 value, svec2 target, scalar step)
 {
 	svec2 totalDisplacement = target - value;
 	svec2 displacement = totalDisplacement.normalised() * step;
-	svec2 finalVector;
 	if (displacement.sqrLength() < totalDisplacement.sqrLength())
 	{
-		finalVector = value + displacement;
+		return value + displacement;
 	}
-	else finalVector = target;
-	return finalVector;
+	return target;
 }
 
-scalar Utils::Interpolate(scalar value, scalar target, scalar step)
+scalar Utils::MoveTowards(scalar value, scalar target, scalar step)
 {
 	scalar totalDisplacement = target - value;
 	scalar displacement = step * (totalDisplacement / abs(totalDisplacement));
-	scalar finalVector;
 	if (displacement < totalDisplacement)
 	{
-		finalVector = value + displacement;
+		return value + displacement;
 	}
-	else finalVector = target;
-	return finalVector;
+	return target;
 }
 
-int Utils::Interpolate(int value, int target, scalar step)
+int Utils::MoveTowards(int value, int target, scalar step)
 {
 	int totalDisplacement = target - value;
 	scalar displacement = step * (totalDisplacement / abs(totalDisplacement));
-	int final;
 	if (displacement < totalDisplacement)
 	{
-		final = value + displacement;
+		return value + displacement;
 	}
-	else final = target;
-	return final;
+	return target;
 }
 
 bool Utils::IntersectRect(const iRect & a, const iRect & b)
@@ -59,4 +53,14 @@ bool Utils::IntersectRect(const iRect & a, const iRect & b)
 		return true;
 	}
 	return false;*/
+}
+
+scalar Utils::Clamp(scalar s, scalar minimum, scalar maximum)
+{
+	return max(min(s,maximum), minimum);
+}
+
+scalar Utils::Clamp01(scalar s)
+{
+	return max(min(s, 1), 0);
 }

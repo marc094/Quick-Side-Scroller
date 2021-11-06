@@ -22,9 +22,11 @@ struct Circle
 namespace Utils
 {
 	bool CircleInCircle(Circle c1, Circle c2);
-	svec2 Interpolate(svec2 value, svec2 target, scalar step);
-	scalar Interpolate(scalar value, scalar target, scalar step);
-	int Interpolate(int value, int target, scalar step);
+	svec2 MoveTowards(svec2 value, svec2 target, scalar step);
+	scalar MoveTowards(scalar value, scalar target, scalar step);
+	int MoveTowards(int value, int target, scalar step);
 	bool IntersectRect(const iRect &, const iRect &);
+	scalar Clamp(scalar s, scalar minimum, scalar maximum);
+	scalar Clamp01(scalar s);
 }
 #endif

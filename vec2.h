@@ -3,6 +3,7 @@
 
 #include "Defs.h"
 #include "SDL\include\SDL_rect.h"
+//#include "Utils.h"
 
 template<class TYPE>
 struct vec2
@@ -74,19 +75,23 @@ struct vec2
 		return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 	}
 
-	scalar vec2::sqrDistance(const vec2& other) const {
+	scalar vec2::sqrDistance(const vec2& other) const
+	{
 		return (other.x - x) * (other.x - x) + (other.y - y) * (other.y - y);
 	}
 
-	scalar vec2::length() const {
+	scalar vec2::length() const
+	{
 		return sqrt(x * x + y * y);
 	}
 
-	scalar vec2::sqrLength() const {
+	scalar vec2::sqrLength() const
+	{
 		return x * x + y * y;
 	}
 
-	scalar vec2::angle(const vec2& other) const {
+	scalar vec2::angle(const vec2& other) const
+	{
 		return atan2(y - other.y, x - other.x);
 	}
 
@@ -100,6 +105,32 @@ struct vec2
 		scalar l = max(length(), .0000000000000000001);
 		x /= l;
 		y /= l;
+	}
+
+	void vec2::Lerp(vec2 end, scalar t)
+	{
+		//t = Utils::Clamp01(t);
+		*this = *this + (end - *this) * t;
+		/*x = x + (end.x - x) * t;
+		y = y + (end.y - y) * t;*/
+	}
+
+	static vec2 vec2::sLerp(vec2 start, vec2 end, scalar t)
+	{
+		//t = Utils::Clamp01(t);
+		return start + (end - start) * t;
+	}
+
+	void vec2::LerpUnclamped(vec2 end, scalar t)
+	{
+		*this = *this + (end - *this) * t;
+		/*x = x + (end.x - x) * t;
+		y = y + (end.y - y) * t;*/
+	}
+
+	static vec2 vec2::sLerpUnclamped(vec2 start, vec2 end, scalar t)
+	{
+		return start + (end - start) * t;
 	}
 };
 
