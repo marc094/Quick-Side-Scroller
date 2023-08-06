@@ -26,6 +26,8 @@ void Application::InitBody(PhysBody* body)
 	static int index = 0;
 	std::uniform_int_distribution<std::mt19937_64::result_type> distributionMass(MIN_MASS, MAX_MASS);
 	std::uniform_int_distribution<std::mt19937_64::result_type> distributionDensity(MIN_DENSITY, MAX_DENSITY);
+	std::uniform_real_distribution<> distributionMomentum(MIN_INITIAL_MOMENTUM, MAX_INITIAL_MOMENTUM);
+	std::uniform_real_distribution<> distributionMomentumDirection(0, 2*M_PI);
 
 	body->mass = distributionMass(rng);
 	//cel_body->diametre = rand() % (MAX_DIAMETRE - MIN_DIAMETRE + 1) + MIN_DIAMETRE;
@@ -37,13 +39,18 @@ void Application::InitBody(PhysBody* body)
 	//cel_body->density = cel_body->mass / cel_body->area;
 
 	body->pos = GenerateInitialPosition();
+	scalar momentum = distributionMomentum(rng);
+	scalar direction = distributionMomentumDirection(rng);
+	body->speed.x = (momentum / body->mass) * sin(direction);
+	body->speed.y = (momentum / body->mass) * cos(direction);
 	/*scalar speed = (rand() % (int)(STARTING_SPEED_MAGNITUDE * 0.1) + STARTING_SPEED_MAGNITUDE) * sqrt(distance) / body->mass;
 	body->speed.x = speed * sin(angle + M_PI / 2);
 	body->speed.y = speed * cos(angle + M_PI / 2);*/
 	/*float factor = (float)M_PI / (MAX_BODIES * 0.5f);
 	cel_body->pos.x = (double)((SCREEN_WIDTH / 2) + (400) * cos(index * factor));
 	cel_body->pos.y = (double)((SCREEN_HEIGHT / 2) + (400) * sin(index * factor));*/
-	body->speed = sZero;
+	
+	//body->speed = sZero;
 	body->force = sZero;
 
 	body->color = { 255, 255, 255 };
@@ -581,7 +588,7 @@ void Application::Draw()
 		/*SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + (body->force.x / body->mass) * cameraScale, targetPosRelative.y + (body->force.y / body->mass) * cameraScale);
 		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);*/
-		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + body->speed.x * cameraScale, targetPosRelative.y + body->speed.y * cameraScale);
+		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + body->speed.x * cameraScale * VELOCITY_VECTOR_SCALE, targetPosRelative.y + body->speed.y * cameraScale * VELOCITY_VECTOR_SCALE);
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
 		SDL_FPoint* trailPoints = body->sortedTrail();
