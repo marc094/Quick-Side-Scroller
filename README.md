@@ -18,6 +18,9 @@ cmake --build build
 
 On Windows the Visual Studio solution (`Quick Side Scroller.sln`) also works.
 
+Gravity uses a Barnes-Hut quadtree (`QuadTree.h`, accuracy set by `BH_THETA` in `Defs.h`) and OpenMP when available.
+`--exact` switches to the O(n^2) reference and `--check-error` prints the tree's force error against it.
+
 Options for headless smoke tests: `qss --run --frames N` starts unpaused, exits after N frames and prints
 active body count, total mass and total momentum (the latter two must stay constant). Use
 `SDL_VIDEODRIVER=dummy` to run without a display.

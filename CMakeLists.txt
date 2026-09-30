@@ -15,8 +15,14 @@ add_executable(qss
   Camera.cpp
   InputDevice.cpp
   PhysBody.cpp
+  QuadTree.cpp
   Timer.cpp
   Utils.cpp)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(qss PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 if(TARGET SDL2::SDL2)
   target_link_libraries(qss PRIVATE SDL2::SDL2)

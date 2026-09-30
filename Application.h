@@ -4,6 +4,7 @@
 #include "Timer.h"
 #include "Rect.h"
 #include "vec2.h"
+#include "QuadTree.h"
 #include <list>
 #include <random>
 #include <vector>
@@ -29,13 +30,17 @@ public:
 	void Reset();
 
 	void MergeBodies(PhysBody& survivor, PhysBody& absorbed);
+	void ResolveCollisions();
 	void ComputeForces();
+	void AccumulateForcesDirect();
 	void Step(scalar dt);
 	void UpdateTrail(bool advance);
 	void Finish();
 
 	void SetPaused(bool value) { paused = value; }
 	void PrintStats() const;
+	void PrintForceError();
+	void SetExactForces(bool value) { exactForces = value; }
 
 	svec2 GenerateInitialPosition();
 
@@ -65,6 +70,11 @@ private:
 	PhysBody* trailOwner = nullptr;
 	int trailIndex = 0;
 	scalar trailTimer = 0;
+
+	QuadTree tree;
+	std::vector<int> candidates;
+	bool treeValid = false;
+	bool exactForces = false;
 
 	// False when `force` doesn't reflect the current state (start, reset, respawn)
 	bool forcesValid = false;

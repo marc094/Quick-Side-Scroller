@@ -173,6 +173,9 @@ void Application::Finish()
 	}
 	rocks.clear();*/
 
+	delete camera;
+	camera = nullptr;
+
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
@@ -479,54 +482,75 @@ void Application::MergeBodies(PhysBody& survivor, PhysBody& absorbed)
 	absorbed.force = sZero;
 }
 
-// Resolves collisions and accumulates the gravitational force on every body.
-// Positions are not modified here (other than by merges), so every pair sees a
-// consistent snapshot of the system.
-void Application::ComputeForces()
+// Merges every pair of overlapping bodies. Candidates come from the quadtree; the actual
+// overlap is re-checked against live values because merging changes position and radius.
+void Application::ResolveCollisions()
 {
 	PhysBody* target = camera->GetTarget();
-	uint activeBodies = 0;
+	bool merged = false;
 
-	for (int i = 0; i < MAX_BODIES; ++i)
-		rocks[i].force = sZero;
+	tree.Build(rocks, MAX_BODIES);
 
 	for (int i = 0; i < MAX_BODIES; ++i)
 	{
 		if (!rocks[i].active)
 			continue;
 
+		candidates.clear();
+		tree.QueryOverlaps(rocks, i, candidates);
+
 		// rocks[i] can be absorbed mid-loop, in which case it has nothing left to do
-		for (int j = i + 1; j < MAX_BODIES && rocks[i].active; ++j)
+		for (size_t c = 0; c < candidates.size() && rocks[i].active; ++c)
 		{
-			if (!rocks[j].active)
+			PhysBody& a = rocks[i];
+			PhysBody& b = rocks[candidates[c]];
+			if (!b.active)
 				continue;
 
-			PhysBody& a = rocks[i];
-			PhysBody& b = rocks[j];
-
-			svec2 distance = b.pos - a.pos;
-			scalar sqrDistance = distance.sqrLength();
 			scalar radiusSum = a.circle.radius + b.circle.radius;
 
 			// Compared squared to avoid the sqrt()
-			if (sqrDistance < radiusSum * radiusSum)
+			if (a.pos.sqrDistance(b.pos) < radiusSum * radiusSum)
 			{
 				if ((a.mass >= b.mass && &b != target) || &a == target)
 					MergeBodies(a, b);
 				else
 					MergeBodies(b, a);
-			}
-			else
-			{
-				scalar gForce = (G_CONSTANT * b.mass * a.mass) / sqrDistance;
-
-				distance.normalise();
-
-				a.force += distance * gForce;
-				b.force -= distance * gForce;
+				merged = true;
 			}
 		}
+	}
 
+	// Merging moved and removed bodies, so the tree no longer matches
+	treeValid = !merged;
+}
+
+// Resolves collisions and accumulates the gravitational force on every body.
+// Positions are not modified here (other than by merges), so every body sees a
+// consistent snapshot of the system.
+void Application::ComputeForces()
+{
+	ResolveCollisions();
+
+	if (exactForces)
+	{
+		AccumulateForcesDirect();
+	}
+	else
+	{
+		if (!treeValid)
+			tree.Build(rocks, MAX_BODIES);
+
+		#pragma omp parallel for schedule(dynamic, 64)
+		for (int i = 0; i < MAX_BODIES; ++i)
+		{
+			rocks[i].force = rocks[i].active ? tree.Force(rocks, i, BH_THETA) : sZero;
+		}
+	}
+
+	uint activeBodies = 0;
+	for (int i = 0; i < MAX_BODIES; ++i)
+	{
 		if (!rocks[i].active)
 			continue;
 
@@ -541,6 +565,77 @@ void Application::ComputeForces()
 	}
 
 	totalActiveBodies = activeBodies;
+}
+
+// Exact O(n^2) forces, used as the reference for the tree approximation
+void Application::AccumulateForcesDirect()
+{
+	for (int i = 0; i < MAX_BODIES; ++i)
+		rocks[i].force = sZero;
+
+	for (int i = 0; i < MAX_BODIES; ++i)
+	{
+		if (!rocks[i].active)
+			continue;
+
+		for (int j = i + 1; j < MAX_BODIES; ++j)
+		{
+			if (!rocks[j].active)
+				continue;
+
+			PhysBody& a = rocks[i];
+			PhysBody& b = rocks[j];
+
+			svec2 distance = b.pos - a.pos;
+			scalar sqrDistance = distance.sqrLength();
+			if (sqrDistance <= 0)
+				continue;
+
+			// Same softening as the tree for overlapping bodies
+			scalar radiusSum = a.circle.radius + b.circle.radius;
+			scalar softened = std::max(sqrDistance, radiusSum * radiusSum);
+			svec2 force = distance * ((G_CONSTANT * a.mass * b.mass) / (softened * sqrt(sqrDistance)));
+
+			a.force += force;
+			b.force -= force;
+		}
+	}
+}
+
+// Compares the tree forces against the exact ones on the current state
+void Application::PrintForceError()
+{
+	ResolveCollisions();
+	tree.Build(rocks, MAX_BODIES);
+	treeValid = true;
+
+	std::vector<svec2> approximate(MAX_BODIES);
+	for (int i = 0; i < MAX_BODIES; ++i)
+		approximate[i] = rocks[i].active ? tree.Force(rocks, i, BH_THETA) : sZero;
+
+	AccumulateForcesDirect();
+
+	scalar sum = 0, worst = 0;
+	uint count = 0;
+	for (int i = 0; i < MAX_BODIES; ++i)
+	{
+		if (!rocks[i].active)
+			continue;
+
+		scalar length = rocks[i].force.length();
+		if (length <= 0)
+			continue;
+
+		scalar error = (approximate[i] - rocks[i].force).length() / length;
+		sum += error;
+		worst = std::max(worst, error);
+		count++;
+	}
+
+	char output[256];
+	snprintf(output, sizeof(output), "theta=%.2f force error: mean=%.4f%% max=%.4f%% (%u bodies)\n", (double)BH_THETA, 100 * sum / std::max(count, 1u), 100 * worst, count);
+	OutputDebugString(output);
+	forcesValid = false;
 }
 
 // Kick-drift-kick leapfrog. Relies on `force` holding the forces from the end of the previous step.

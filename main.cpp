@@ -31,12 +31,18 @@ float realDeltaTime = 0.0f;
 int main(int argc, char *args[])
 {
 	// --run: start unpaused. --frames N: exit after N frames and print conservation stats.
+	// --exact: O(n^2) forces instead of Barnes-Hut. --check-error: print tree vs exact force error at start.
 	bool run = false;
+	bool exact = false, checkError = false;
 	long maxFrames = -1;
 	for (int i = 1; i < argc; ++i)
 	{
 		if (strcmp(args[i], "--run") == 0)
 			run = true;
+		else if (strcmp(args[i], "--exact") == 0)
+			exact = true;
+		else if (strcmp(args[i], "--check-error") == 0)
+			checkError = true;
 		else if (strcmp(args[i], "--frames") == 0 && i + 1 < argc)
 			maxFrames = atol(args[++i]);
 	}
@@ -45,6 +51,9 @@ int main(int argc, char *args[])
 	app.Start();
 	if (run)
 		app.SetPaused(false);
+	app.SetExactForces(exact);
+	if (checkError)
+		app.PrintForceError();
 
 	if (maxFrames >= 0)
 		app.PrintStats();
