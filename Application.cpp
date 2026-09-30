@@ -97,6 +97,24 @@ void Application::Reset()
 	reset = false;
 }
 
+void Application::SetZoom(scalar scale)
+{
+	camera->SetScale(scale);
+}
+
+// Saves what the renderer last drew as a BMP
+bool Application::SaveScreenshot(const char* path)
+{
+	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (surface == nullptr)
+		return false;
+
+	bool ok = SDL_RenderReadPixels(renderer, nullptr, surface->format->format, surface->pixels, surface->pitch) == 0
+		&& SDL_SaveBMP(surface, path) == 0;
+	SDL_FreeSurface(surface);
+	return ok;
+}
+
 // Prints values that should be conserved by the simulation (total momentum, total mass)
 void Application::PrintStats() const
 {
@@ -616,6 +634,13 @@ void Application::Update()
 }
 
 // ----------------------------------------------------------------
+void Application::FlushPoints()
+{
+	if (!drawPoints.empty())
+		SDL_RenderDrawPointsF(renderer, drawPoints.data(), (int)drawPoints.size());
+	drawPoints.clear();
+}
+
 void Application::Draw()
 {
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -624,25 +649,16 @@ void Application::Draw()
 	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-	SDL_FPoint points[MAX_CIRCLE_POINTS];
-	uint point_number = 0;
-	scalar factor = 1.f;
-	scalar cameraScale = camera->GetScale();
-	svec2 cameraPos = camera->GetPosition();
-	iRect rockRect, cameraRect;
-	rockRect.w = 1;
-	rockRect.h = 1;
-	cameraRect = camera->GetRect();
-	PhysBody* body = camera->GetTarget();
-	int roundedRadius = 0;
+	const scalar cameraScale = camera->GetScale();
+	const svec2 cameraPos = camera->GetPosition();
+	PhysBody* target = camera->GetTarget();
 
-	if (body != nullptr)
+	if (target != nullptr)
 	{
-		svec2 targetPosRelative = (body->pos - cameraPos) * cameraScale + svec2(HALF_SCREEN_WIDTH, HALF_SCREEN_HEIGHT);
-		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + body->speed.x * cameraScale * VELOCITY_VECTOR_SCALE, targetPosRelative.y + body->speed.y * cameraScale * VELOCITY_VECTOR_SCALE);
-		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+		svec2 targetPosRelative = (target->pos - cameraPos) * cameraScale + svec2(HALF_SCREEN_WIDTH, HALF_SCREEN_HEIGHT);
+		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + target->speed.x * cameraScale * VELOCITY_VECTOR_SCALE, targetPosRelative.y + target->speed.y * cameraScale * VELOCITY_VECTOR_SCALE);
 
-		if (trailOwner == body)
+		if (trailOwner == target)
 		{
 			for (int i = 0; i < TRAIL_LENGTH; i++)
 			{
@@ -652,40 +668,51 @@ void Application::Draw()
 		}
 	}
 
-	body = null;
+	// All bodies go through one point buffer so SDL gets a few big calls instead of one per body
+	drawPoints.clear();
 
 	for (int i = 0; i < MAX_BODIES; i++)
 	{
-		if (!rocks[i].active)
+		const PhysBody& body = rocks[i];
+		if (!body.active)
 			continue;
 
-		body = &rocks[i];
+		// Culled in screen space, before doing any per-body work
+		const scalar screenX = (body.pos.x - cameraPos.x) * cameraScale + HALF_SCREEN_WIDTH;
+		const scalar screenY = (body.pos.y - cameraPos.y) * cameraScale + HALF_SCREEN_HEIGHT;
+		const scalar screenDiametre = body.diametre * cameraScale;
+		const scalar margin = screenDiametre * 0.5 + 1;
+		if (screenX < -margin || screenX > SCREEN_WIDTH + margin || screenY < -margin || screenY > SCREEN_HEIGHT + margin)
+			continue;
 
-		roundedRadius = max((int)round(body->circle.radius), 1);
-		rockRect.x = body->pos.x - roundedRadius;
-		rockRect.y = body->pos.y - roundedRadius;
-		rockRect.w = rockRect.h = 2 * roundedRadius;
-		if (Utils::IntersectRect(cameraRect, rockRect))
+		if (screenDiametre > 1)
 		{
-			if (body->diametre * cameraScale > 1)
-			{
-				point_number = min((uint)(body->diametre * cameraScale) + 1, (uint)MAX_CIRCLE_POINTS);
+			// Circle outline, one vertex per screen pixel of diametre. Vertices are stepped by
+			// rotating a vector instead of calling sin/cos for each one.
+			const uint pointCount = min((uint)screenDiametre + 1, (uint)MAX_CIRCLE_POINTS);
+			const scalar step = 2 * M_PI / pointCount;
+			const scalar stepCos = cos(step), stepSin = sin(step);
+			const scalar radius = screenDiametre * 0.5;
+			scalar x = radius, y = 0;
 
-				factor = (float)M_PI / (point_number / 2.f);
-
-				for (unsigned int j = 0; j < point_number; ++j)
-				{
-					points[j].x = ((body->pos.x + (body->diametre / 2) * cos(j * factor)) - cameraPos.x) * cameraScale + HALF_SCREEN_WIDTH;
-					points[j].y = ((body->pos.y + (body->diametre / 2) * sin(j * factor)) - cameraPos.y) * cameraScale + HALF_SCREEN_HEIGHT;
-				}
-				SDL_RenderDrawPointsF(renderer, points, point_number);
-			}
-			else
+			for (uint j = 0; j < pointCount; ++j)
 			{
-				SDL_RenderDrawPoint(renderer, (body->pos.x - cameraPos.x) * cameraScale + HALF_SCREEN_WIDTH, (body->pos.y - cameraPos.y) * cameraScale + HALF_SCREEN_HEIGHT);
+				drawPoints.push_back({ (float)(screenX + x), (float)(screenY + y) });
+				const scalar rotatedX = x * stepCos - y * stepSin;
+				y = x * stepSin + y * stepCos;
+				x = rotatedX;
 			}
 		}
+		else
+		{
+			drawPoints.push_back({ (float)screenX, (float)screenY });
+		}
+
+		if (drawPoints.size() >= DRAW_BATCH_SIZE)
+			FlushPoints();
 	}
+
+	FlushPoints();
 
 	if (drawSelectionRect)
 	{

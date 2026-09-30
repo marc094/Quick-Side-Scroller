@@ -35,9 +35,13 @@ public:
 	void AccumulateForcesDirect();
 	void Step(scalar dt);
 	void UpdateTrail(bool advance);
+	void FlushPoints();
 	void Finish();
 
 	void SetPaused(bool value) { paused = value; }
+	void SetZoom(scalar scale);
+	void SetSeed(unsigned long long seed) { rng.seed(seed); }
+	bool SaveScreenshot(const char* path);
 	void PrintStats() const;
 	void PrintForceError();
 	void SetExactForces(bool value) { exactForces = value; }
@@ -65,6 +69,7 @@ private:
 	// Trail of the camera target only (kept out of PhysBody to avoid ~50KB per body)
 	std::vector<svec2> trail;
 	std::vector<SDL_FPoint> trailScreen;
+	std::vector<SDL_FPoint> drawPoints;
 	PhysBody* trailOwner = nullptr;
 	int trailIndex = 0;
 	scalar trailTimer = 0;
