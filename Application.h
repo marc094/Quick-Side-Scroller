@@ -10,8 +10,8 @@
 
 struct SDL_Window;
 struct SDL_Renderer;
-typedef class Camera;
-typedef class PhysBody;
+class Camera;
+class PhysBody;
 
 class Application
 {
@@ -33,6 +33,9 @@ public:
 	void Step(scalar dt);
 	void UpdateTrail(bool advance);
 	void Finish();
+
+	void SetPaused(bool value) { paused = value; }
+	void PrintStats() const;
 
 	svec2 GenerateInitialPosition();
 

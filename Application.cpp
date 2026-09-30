@@ -2,12 +2,13 @@
 #include <time.h>
 #include <algorithm>
 #include <cmath>
-#include <windows.h>
 #include <string>
 #include "PhysBody.h"
-#include "Time.h"
 #include "Camera.h"
-#include "SDL\include\SDL.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#include "Platform.h"
 
 extern float deltaTime;
 extern float realDeltaTime;
@@ -69,6 +70,8 @@ void Application::Start()
 	// Create window & renderer
 	window = SDL_CreateWindow("Stellar", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_BORDERLESS);
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	if (renderer == nullptr)
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
 
 	camera = new Camera();
 
@@ -133,6 +136,28 @@ void Application::Reset()
 	trailOwner = nullptr;
 
 	reset = false;
+}
+
+// Prints values that should be conserved by the simulation (total momentum, total mass)
+void Application::PrintStats() const
+{
+	svec2 momentum = sZero;
+	scalar totalMass = 0;
+	uint active = 0;
+
+	for (int i = 0; i < MAX_BODIES; ++i)
+	{
+		if (!rocks[i].active)
+			continue;
+
+		momentum += rocks[i].speed * rocks[i].mass;
+		totalMass += (scalar)rocks[i].mass;
+		active++;
+	}
+
+	char output[256];
+	snprintf(output, sizeof(output), "active=%u mass=%.6e momentum=(%.6e, %.6e)\n", active, totalMass, momentum.x, momentum.y);
+	OutputDebugString(output);
 }
 
 // ----------------------------------------------------------------
@@ -686,7 +711,8 @@ void Application::Draw()
 
 	if (drawSelectionRect)
 	{
-		SDL_RenderDrawRect(renderer, &(SDL_Rect)selectionRect);
+		SDL_Rect selection = (SDL_Rect)selectionRect;
+		SDL_RenderDrawRect(renderer, &selection);
 	}
 
 	// Finally swap buffers

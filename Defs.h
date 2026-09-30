@@ -1,6 +1,17 @@
 #ifndef __DEFS_H__
 #define __DEFS_H__
 
+// Standard headers must come before the min/max macros below, or they break std::min/std::max
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
+#include <algorithm>
+#include <cmath>
+#include <list>
+#include <random>
+#include <string>
+#include <vector>
+
 // Globals --------------------------------------------------------
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080

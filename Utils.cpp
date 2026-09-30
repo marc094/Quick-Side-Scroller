@@ -21,7 +21,7 @@ svec2 Utils::MoveTowards(svec2 value, svec2 target, scalar step)
 scalar Utils::MoveTowards(scalar value, scalar target, scalar step)
 {
 	scalar totalDisplacement = target - value;
-	scalar displacement = step * (totalDisplacement / abs(totalDisplacement));
+	scalar displacement = step * (totalDisplacement / fabs(totalDisplacement));
 	if (displacement < totalDisplacement)
 	{
 		return value + displacement;
@@ -32,7 +32,7 @@ scalar Utils::MoveTowards(scalar value, scalar target, scalar step)
 int Utils::MoveTowards(int value, int target, scalar step)
 {
 	int totalDisplacement = target - value;
-	scalar displacement = step * (totalDisplacement / abs(totalDisplacement));
+	scalar displacement = step * (totalDisplacement / fabs(totalDisplacement));
 	if (displacement < totalDisplacement)
 	{
 		return value + displacement;

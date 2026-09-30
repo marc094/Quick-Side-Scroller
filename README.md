@@ -6,9 +6,21 @@ Simplistic side scroller made with SDL for educational purposes.
 
 QSS is maintained at https://github.com/d0n3val/Quick-Side-Scroller
 
-## Installation
+## Building
 
-Download the code and play with it to learn, there is no formal installation process.
+Requires SDL2 development files (e.g. `apt install libsdl2-dev`).
+
+```
+cmake -S . -B build
+cmake --build build
+./build/qss
+```
+
+On Windows the Visual Studio solution (`Quick Side Scroller.sln`) also works.
+
+Options for headless smoke tests: `qss --run --frames N` starts unpaused, exits after N frames and prints
+active body count, total mass and total momentum (the latter two must stay constant). Use
+`SDL_VIDEODRIVER=dummy` to run without a display.
 
 ## Credits
 

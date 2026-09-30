@@ -2,7 +2,7 @@
 #define __VEC2_H__
 
 #include "Defs.h"
-#include "SDL\include\SDL_rect.h"
+#include "Platform.h"
 //#include "Utils.h"
 
 template<class TYPE>
@@ -16,98 +16,98 @@ struct vec2
 
 	explicit operator SDL_FPoint() const { return { (float)x, (float)y }; }
 
-	vec2 vec2::operator +(const vec2& other) const {
+	vec2 operator +(const vec2& other) const {
 		vec2 n(x + other.x, y + other.y);
 		return n;
 	}
 
-	vec2 vec2::operator -(const vec2& other) const {
+	vec2 operator -(const vec2& other) const {
 		vec2 n(x - other.x, y - other.y);
 		return n;
 	}
 
-	vec2 vec2::operator *(TYPE sc) const
+	vec2 operator *(TYPE sc) const
 	{
-		svec2 n(x * sc, y * sc);
+		vec2 n(x * sc, y * sc);
 		return n;
 	}
 
-	vec2 vec2::operator/(TYPE sc) const
+	vec2 operator/(TYPE sc) const
 	{
-		svec2 n(x / sc, y / sc);
+		vec2 n(x / sc, y / sc);
 		return n;
 	}
 
-	const vec2& vec2::operator +=(const vec2& other)
+	const vec2& operator +=(const vec2& other)
 	{
 		x += other.x;
 		y += other.y;
 		return(*this);
 	}
 
-	const vec2& vec2::operator -=(const vec2& other)
+	const vec2& operator -=(const vec2& other)
 	{
 		x -= other.x;
 		y -= other.y;
 		return(*this);
 	}
 
-	const vec2& vec2::operator*=(TYPE sc) {
+	const vec2& operator*=(TYPE sc) {
 		x *= sc;
 		y *= sc;
 		return (*this);
 	}
 
-	const vec2 & vec2::operator/=(TYPE sc)
+	const vec2 & operator/=(TYPE sc)
 	{
 		x /= sc;
 		y /= sc;
 		return (*this);
 	}
 
-	scalar vec2::distance(const vec2& other) const
+	scalar distance(const vec2& other) const
 	{
 		return sqrt((other.x - x) * (other.x - x) + (other.y - y) * (other.y - y));
 	}
 
-	static scalar vec2::sDistance(const vec2& a, const vec2& b)
+	static scalar sDistance(const vec2& a, const vec2& b)
 	{
 		return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 	}
 
-	scalar vec2::sqrDistance(const vec2& other) const
+	scalar sqrDistance(const vec2& other) const
 	{
 		return (other.x - x) * (other.x - x) + (other.y - y) * (other.y - y);
 	}
 
-	scalar vec2::length() const
+	scalar length() const
 	{
 		return sqrt(x * x + y * y);
 	}
 
-	scalar vec2::sqrLength() const
+	scalar sqrLength() const
 	{
 		return x * x + y * y;
 	}
 
-	scalar vec2::angle(const vec2& other) const
+	scalar angle(const vec2& other) const
 	{
 		return atan2(y - other.y, x - other.x);
 	}
 
-	vec2 vec2::normalised() const
+	vec2 normalised() const
 	{
 		return vec2(x, y) / length();
 	}
 
-	void vec2::normalise()
+	void normalise()
 	{
 		scalar l = max(length(), .0000000000000000001);
 		x /= l;
 		y /= l;
 	}
 
-	void vec2::Lerp(vec2 end, scalar t)
+	void Lerp(vec2 end, scalar t)
 	{
 		//t = Utils::Clamp01(t);
 		*this = *this + (end - *this) * t;
@@ -115,20 +115,20 @@ struct vec2
 		y = y + (end.y - y) * t;*/
 	}
 
-	static vec2 vec2::sLerp(vec2 start, vec2 end, scalar t)
+	static vec2 sLerp(vec2 start, vec2 end, scalar t)
 	{
 		//t = Utils::Clamp01(t);
 		return start + (end - start) * t;
 	}
 
-	void vec2::LerpUnclamped(vec2 end, scalar t)
+	void LerpUnclamped(vec2 end, scalar t)
 	{
 		*this = *this + (end - *this) * t;
 		/*x = x + (end.x - x) * t;
 		y = y + (end.y - y) * t;*/
 	}
 
-	static vec2 vec2::sLerpUnclamped(vec2 start, vec2 end, scalar t)
+	static vec2 sLerpUnclamped(vec2 start, vec2 end, scalar t)
 	{
 		return start + (end - start) * t;
 	}
