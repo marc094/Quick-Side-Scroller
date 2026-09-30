@@ -18,7 +18,7 @@ public:
 	uint32 Started() const;
 
 private:
-	uint32	startTime;
+	uint32	startTime = 0;
 };
 
 #endif

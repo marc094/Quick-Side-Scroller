@@ -1,5 +1,7 @@
 #include "Application.h"
 #include <time.h>
+#include <algorithm>
+#include <cmath>
 #include <windows.h>
 #include <string>
 #include "PhysBody.h"
@@ -23,7 +25,6 @@ Application::~Application()
 
 void Application::InitBody(PhysBody* body)
 {
-	static int index = 0;
 	std::uniform_int_distribution<std::mt19937_64::result_type> distributionMass(MIN_MASS, MAX_MASS);
 	std::uniform_int_distribution<std::mt19937_64::result_type> distributionDensity(MIN_DENSITY, MAX_DENSITY);
 	std::uniform_real_distribution<> distributionMomentum(MIN_INITIAL_MOMENTUM, MAX_INITIAL_MOMENTUM);
@@ -59,18 +60,10 @@ void Application::InitBody(PhysBody* body)
 	body->circle.y = (int)body->pos.y;
 	body->circle.radius = body->diametre / 2;
 	body->active = true;
-	body->trailIndex = 0;
-	body->trailRecordIndex = index++ % TRAIL_UPDATE_FREQUENCY;
-
-	for (int i = 0; i < TRAIL_LENGTH; i++)
-	{
-		body->trail[i] = body->pos;
-	}
 }
 
 void Application::Start()
 {
-	srand(time(nullptr));
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	// Create window & renderer
@@ -87,6 +80,9 @@ void Application::Start()
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);*/
 
 	rocks = ARR_DECL(PhysBody, MAX_BODIES);
+	trail.resize(TRAIL_LENGTH);
+	trailScreen.resize(TRAIL_LENGTH);
+	frameTimeTimer.Start();
 	//rocks = std::list<PhysBody*>();
 	/*for (int i = 0; i < MAX_BODIES; i++)
 		rocks.push_back(new PhysBody());*/
@@ -133,6 +129,8 @@ void Application::Reset()
 	camera->SetScale(1.0);
 
 	paused = true;
+	forcesValid = false;
+	trailOwner = nullptr;
 
 	reset = false;
 }
@@ -157,46 +155,40 @@ void Application::Finish()
 
 svec2 Application::GenerateInitialPosition()
 {
-	svec2 position;
+	std::uniform_real_distribution<scalar> unit(0.0, 1.0);
+	std::uniform_real_distribution<scalar> signedUnit(-1.0, 1.0);
+	svec2 position = sZero;
+
 	switch (INITIAL_DISTRIBUTION)
 	{
 	case InitialDistribution::RADIAL_CENTRE_DENSER:
 	{
-		scalar angle = rand() % 360;
-		angle *= (2 * M_PI / 360);
-		scalar distance = rand() % SPAWN_RADIUS;
+		scalar angle = unit(rng) * 2 * M_PI;
+		scalar distance = unit(rng) * SPAWN_RADIUS;
 		position.x = sin(angle) * distance;
 		position.y = cos(angle) * distance;
 		break;
 	}
 	case InitialDistribution::RADIAL_UNIFORM:
 	{
-		bool correct = false;
-		while (!correct)
-		{
-			position.x = rand() % (2 * SPAWN_RADIUS) - SPAWN_RADIUS;
-			position.y = rand() % (2 * SPAWN_RADIUS) - SPAWN_RADIUS;
-
-			if (svec2::sDistance(sZero, position) < SPAWN_RADIUS)
-				correct = true;
-		}
+		scalar angle = unit(rng) * 2 * M_PI;
+		scalar distance = sqrt(unit(rng)) * SPAWN_RADIUS;
+		position.x = sin(angle) * distance;
+		position.y = cos(angle) * distance;
 		break;
 	}
 	case InitialDistribution::SQUARE_CENTRE_DENSER:
 	{
-		/*bool correct = false;
-		while (!correct)
-		{
-			scalar angle = rand() % 360;
-			angle *= (2 * M_PI / 360);
-			scalar distance = rand() % SPAWN_RADIUS;
-			position.x = sin(angle) * distance;
-			position.y = cos(angle) * distance;
-		}*/
+		// Squaring biases each coordinate towards 0
+		scalar x = signedUnit(rng), y = signedUnit(rng);
+		position.x = x * fabs(x) * SPAWN_RADIUS;
+		position.y = y * fabs(y) * SPAWN_RADIUS;
 		break;
 	}
 	case InitialDistribution::SQUARE_UNIFORM:
 	{
+		position.x = signedUnit(rng) * SPAWN_RADIUS;
+		position.y = signedUnit(rng) * SPAWN_RADIUS;
 		break;
 	}
 	}
@@ -208,17 +200,9 @@ PhysBody * Application::GetHeaviest()
 {
 	uint64 mass = 0;
 	PhysBody* heaviest = nullptr;
-	/*for (std::list<PhysBody*>::iterator it = rocks.begin(); it != rocks.end(); it++)
-	{
-		if ((*it)->mass > mass)
-		{
-			heaviest = *it;
-			mass = (*it)->mass;
-		}
-	}*/
 	for (int i = 0; i < MAX_BODIES; i++)
 	{
-		if (rocks[i].mass > mass)
+		if (rocks[i].active && rocks[i].mass > mass)
 		{
 			heaviest = &rocks[i];
 			mass = rocks[i].mass;
@@ -307,11 +291,12 @@ bool Application::CheckInput()
 				{
 					if (!rocks[i].active)
 					{
-						svec2 worldPos = { (scalar)event.motion.x , (scalar)event.motion.y };
-						rocks[i].pos = camera->ScreenToWorld(worldPos);
-						rocks[i].speed.x = 0;
-						rocks[i].speed.y = 0;
-						rocks[i].active = true;
+						InitBody(&rocks[i]);
+						rocks[i].pos = camera->ScreenToWorld(svec2((scalar)event.motion.x, (scalar)event.motion.y));
+						rocks[i].speed = sZero;
+						rocks[i].circle.x = (sint64)rocks[i].pos.x;
+						rocks[i].circle.y = (sint64)rocks[i].pos.y;
+						forcesValid = false;
 						break;
 					}
 				}
@@ -417,13 +402,14 @@ bool Application::CheckInput()
 // ----------------------------------------------------------------
 void Application::PreUpdate()
 {
+	// Clamp so a stall (window drag, breakpoint) doesn't produce a giant simulation step
 	realDeltaTime = frameTimeTimer.ReadSec();
+	if (realDeltaTime > 0.1f)
+		realDeltaTime = 0.1f;
 	deltaTime = realDeltaTime * timescale;
 
 	frameTimeTimer.Start();
 
-	std::string output = "realDeltaTime: " + std::to_string(realDeltaTime) + "\n";
-	OutputDebugString(output.c_str());
 
 	//OutputDebugString("----------- Starting frame -----------\n");
 
@@ -449,113 +435,173 @@ void Application::PreUpdate()
 }
 
 // -----------------------------------------------------------------
-void Application::Update()
+void Application::MergeBodies(PhysBody& survivor, PhysBody& absorbed)
 {
-	/*std::string output = "Time at Update begin(): " + std::to_string(frameTimeTimer.Readms()) + "\n";
-	OutputDebugString(output.c_str());*/
+	scalar totalMass = (scalar)survivor.mass + (scalar)absorbed.mass;
 
-	if (reset)
-		Reset();
+	survivor.density = (survivor.density * survivor.mass + absorbed.density * absorbed.mass) / totalMass;
+	survivor.speed = ((survivor.speed * survivor.mass) + (absorbed.speed * absorbed.mass)) / totalMass;
+	survivor.pos = ((survivor.pos * survivor.mass) + (absorbed.pos * absorbed.mass)) / totalMass;
+	survivor.force += absorbed.force;
+	survivor.mass += absorbed.mass;
+	survivor.area = survivor.mass / survivor.density;
+	survivor.circle.radius = sqrt(survivor.area / M_PI);
+	survivor.diametre = 2 * survivor.circle.radius;
+	survivor.circle.x = (sint64)survivor.pos.x;
+	survivor.circle.y = (sint64)survivor.pos.y;
 
-	if (!paused || doStep)
+	absorbed.active = false;
+	absorbed.force = sZero;
+}
+
+// Resolves collisions and accumulates the gravitational force on every body.
+// Positions are not modified here (other than by merges), so every pair sees a
+// consistent snapshot of the system.
+void Application::ComputeForces()
+{
+	PhysBody* target = camera->GetTarget();
+	uint activeBodies = 0;
+
+	for (int i = 0; i < MAX_BODIES; ++i)
+		rocks[i].force = sZero;
+
+	for (int i = 0; i < MAX_BODIES; ++i)
 	{
-		doStep = false;
+		if (!rocks[i].active)
+			continue;
 
-		unsigned int activeBodies = 0;
-		scalar gForce = 0;
-		svec2 distance;
-		svec2 acceleration;
-		PhysBody* target = camera->GetTarget();
-		bool collision = false;
-		int i, j;
-
-		for (i = 0; i < MAX_BODIES; ++i)
+		// rocks[i] can be absorbed mid-loop, in which case it has nothing left to do
+		for (int j = i + 1; j < MAX_BODIES && rocks[i].active; ++j)
 		{
-			if (rocks[i].active)
+			if (!rocks[j].active)
+				continue;
+
+			PhysBody& a = rocks[i];
+			PhysBody& b = rocks[j];
+
+			svec2 distance = b.pos - a.pos;
+			scalar sqrDistance = distance.sqrLength();
+			scalar radiusSum = a.circle.radius + b.circle.radius;
+
+			// Compared squared to avoid the sqrt()
+			if (sqrDistance < radiusSum * radiusSum)
 			{
-				activeBodies++;
-				for (j = i + 1; j < MAX_BODIES; ++j)
-				{
-					if (rocks[j].active)
-					{
-						//Removed sqrt() and instead squared the radii sum
-						collision = (rocks[i].circle.x - rocks[j].circle.x) * (rocks[i].circle.x - rocks[j].circle.x)
-							+ (rocks[i].circle.y - rocks[j].circle.y) * (rocks[i].circle.y - rocks[j].circle.y)
-							< (rocks[i].circle.radius + rocks[j].circle.radius) * (rocks[i].circle.radius + rocks[j].circle.radius);
+				if ((a.mass >= b.mass && &b != target) || &a == target)
+					MergeBodies(a, b);
+				else
+					MergeBodies(b, a);
+			}
+			else
+			{
+				scalar gForce = (G_CONSTANT * b.mass * a.mass) / sqrDistance;
 
-						if (collision)
-						{
-							if ((rocks[i].mass >= rocks[j].mass && &rocks[j] != target) || &rocks[i] == target)
-							{
-								rocks[j].active = false;
-								long double total_mass = (long double)(rocks[i].mass + rocks[j].mass);
-								rocks[i].density = (rocks[i].density * rocks[i].mass + rocks[j].density * rocks[j].mass) / total_mass;
-								rocks[i].speed = ((rocks[i].speed * rocks[i].mass) + (rocks[j].speed * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass);
-								rocks[i].pos = ((rocks[i].pos * rocks[i].mass) + (rocks[j].pos * rocks[j].mass)) / (rocks[i].mass + rocks[j].mass);
-								rocks[i].mass = (unsigned long long)total_mass;
-								rocks[i].area = rocks[i].mass / rocks[i].density;
-								rocks[i].circle.radius = sqrt(rocks[i].area / M_PI);
-								rocks[i].diametre = 2 * rocks[i].circle.radius;
-							}
-							else
-							{
-								rocks[i].active = false;
-								long double total_mass = (long double)(rocks[i].mass + rocks[j].mass);
-								rocks[j].density = (rocks[j].density * rocks[j].mass + rocks[i].density * rocks[i].mass) / total_mass;
-								rocks[j].speed = ((rocks[i].speed * rocks[i].mass) + (rocks[j].speed * rocks[j].mass)) / (rocks[j].mass + rocks[i].mass);
-								rocks[j].pos = ((rocks[i].pos * rocks[i].mass) + (rocks[j].pos * rocks[j].mass)) / (rocks[i].mass + rocks[j].mass);
-								rocks[j].mass = (unsigned long long)total_mass;
-								rocks[j].area = rocks[j].mass / rocks[j].density;
-								rocks[j].circle.radius = sqrt(rocks[j].area / M_PI);
-								rocks[j].diametre = 2 * rocks[j].circle.radius;
-							}
-						}
-						else
-						{
-							distance = rocks[j].pos - rocks[i].pos;
+				distance.normalise();
 
-							gForce = ((G_CONSTANT * rocks[j].mass * rocks[i].mass) / max(distance.sqrLength(), rocks[i].circle.radius + rocks[j].circle.radius));
-
-							distance.normalise();
-
-							rocks[i].force += distance * gForce;
-							rocks[j].force -= distance * gForce;
-
-						}
-					}
-				}
-
-				if (G_FORCE)
-				{
-					svec2 screenCentre = svec2(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
-					svec2 delta = rocks[i].pos - screenCentre;
-					delta.normalise();
-					rocks[i].speed -= delta * ((100000000000. / rocks[i].mass) * deltaTime);
-				}
-
-				acceleration = (rocks[i].force / rocks[i].mass);
-				rocks[i].speed += acceleration * deltaTime;
-
-				rocks[i].pos += (rocks[i].speed * deltaTime);
-				rocks[i].UpdateTrail();
-
-				//Friction (buggy)
-				//rocks[i].speed = rocks[i].speed - (rocks[i].speed * (.00000000001 * timescale));
-
-				rocks[i].circle.x = (int)rocks[i].pos.x;
-				rocks[i].circle.y = (int)rocks[i].pos.y;
-
-				rocks[i].force = { 0.0,0.0 };
+				a.force += distance * gForce;
+				b.force -= distance * gForce;
 			}
 		}
 
-		totalActiveBodies = activeBodies;
+		if (!rocks[i].active)
+			continue;
+
+		activeBodies++;
+
+		if (G_FORCE)
+		{
+			svec2 delta = rocks[i].pos - svec2(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+			delta.normalise();
+			rocks[i].force -= delta * G_FORCE_STRENGTH;
+		}
+	}
+
+	totalActiveBodies = activeBodies;
+}
+
+// Kick-drift-kick leapfrog. Relies on `force` holding the forces from the end of the previous step.
+void Application::Step(scalar dt)
+{
+	const scalar halfDt = dt * 0.5;
+
+	for (int i = 0; i < MAX_BODIES; ++i)
+	{
+		if (!rocks[i].active)
+			continue;
+
+		rocks[i].speed += (rocks[i].force / rocks[i].mass) * halfDt;
+		rocks[i].pos += rocks[i].speed * dt;
+	}
+
+	ComputeForces();
+
+	for (int i = 0; i < MAX_BODIES; ++i)
+	{
+		if (!rocks[i].active)
+			continue;
+
+		rocks[i].speed += (rocks[i].force / rocks[i].mass) * halfDt;
+		rocks[i].circle.x = (sint64)rocks[i].pos.x;
+		rocks[i].circle.y = (sint64)rocks[i].pos.y;
+	}
+}
+
+// The trail only exists for the camera target
+void Application::UpdateTrail(bool advance)
+{
+	PhysBody* target = camera->GetTarget();
+
+	if (target == nullptr || !target->active)
+	{
+		trailOwner = nullptr;
+		return;
+	}
+
+	if (target != trailOwner)
+	{
+		trailOwner = target;
+		trailIndex = 0;
+		trailTimer = 0;
+		std::fill(trail.begin(), trail.end(), target->pos);
+	}
+
+	if (!advance)
+		return;
+
+	trailTimer += deltaTime;
+	if (trailTimer > TRAIL_UPDATE_FREQUENCY)
+	{
+		trailTimer = 0;
+		trailIndex = (trailIndex + TRAIL_LENGTH - 1) % TRAIL_LENGTH;
+		trail[trailIndex] = target->pos;
+	}
+}
+
+// -----------------------------------------------------------------
+void Application::Update()
+{
+	if (reset)
+		Reset();
+
+	bool advance = !paused || doStep;
+	if (advance)
+	{
+		doStep = false;
+
+		if (!forcesValid)
+		{
+			ComputeForces();
+			forcesValid = true;
+		}
+
+		// Subdivide big frames so fast timescales don't degrade the integration
+		scalar dt = deltaTime;
+		int steps = (int)Utils::Clamp(ceil(dt / MAX_PHYSICS_STEP), 1, MAX_SUBSTEPS);
+		for (int s = 0; s < steps; ++s)
+			Step(dt / steps);
 	}
 
 	camera->Update();
-
-	/*output = "Time at Update() end: " + std::to_string(frameTimeTimer.Readms()) + "\n";
-	OutputDebugString(output.c_str());*/
+	UpdateTrail(advance);
 }
 
 // ----------------------------------------------------------------
@@ -591,12 +637,14 @@ void Application::Draw()
 		SDL_RenderDrawLineF(renderer, targetPosRelative.x, targetPosRelative.y, targetPosRelative.x + body->speed.x * cameraScale * VELOCITY_VECTOR_SCALE, targetPosRelative.y + body->speed.y * cameraScale * VELOCITY_VECTOR_SCALE);
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-		SDL_FPoint* trailPoints = body->sortedTrail();
-		for (int i = 0; i < TRAIL_LENGTH; i++)
+		if (trailOwner == body)
 		{
-			trailPoints[i] = (SDL_FPoint)camera->WorldToScreen((svec2)trailPoints[i]);
+			for (int i = 0; i < TRAIL_LENGTH; i++)
+			{
+				trailScreen[i] = (SDL_FPoint)camera->WorldToScreen(trail[(trailIndex + i) % TRAIL_LENGTH]);
+			}
+			SDL_RenderDrawLinesF(renderer, trailScreen.data(), TRAIL_LENGTH);
 		}
-		SDL_RenderDrawLinesF(renderer, trailPoints, TRAIL_LENGTH);
 	}
 
 	body = null;

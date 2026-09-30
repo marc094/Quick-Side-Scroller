@@ -6,6 +6,7 @@
 #include "vec2.h"
 #include <list>
 #include <random>
+#include <vector>
 
 struct SDL_Window;
 struct SDL_Renderer;
@@ -26,6 +27,11 @@ public:
 	void Update();
 	void Draw();
 	void Reset();
+
+	void MergeBodies(PhysBody& survivor, PhysBody& absorbed);
+	void ComputeForces();
+	void Step(scalar dt);
+	void UpdateTrail(bool advance);
 	void Finish();
 
 	svec2 GenerateInitialPosition();
@@ -49,6 +55,16 @@ private:
 	bool drawSelectionRect = false;
 	bool movementDrag = false;
 	uint totalActiveBodies = 0u;
+
+	// Trail of the camera target only (kept out of PhysBody to avoid ~50KB per body)
+	std::vector<svec2> trail;
+	std::vector<SDL_FPoint> trailScreen;
+	PhysBody* trailOwner = nullptr;
+	int trailIndex = 0;
+	scalar trailTimer = 0;
+
+	// False when `force` doesn't reflect the current state (start, reset, respawn)
+	bool forcesValid = false;
 
 	bool paused = true;
 	bool doStep = false;
