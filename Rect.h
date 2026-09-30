@@ -2,7 +2,7 @@
 #define __RECT_H__
 
 #include "Defs.h"
-#include "SDL\include\SDL_rect.h"
+#include "Platform.h"
 
 template<class TYPE>
 struct Rect
@@ -11,7 +11,7 @@ struct Rect
 
 	Rect(TYPE x, TYPE y, TYPE w, TYPE h) : x(x), y(y), w(w), h(h) {}
 	Rect() : x(0), y(0), w(0), h(0){}
-	explicit Rect(const SDL_Rect & r) : x(r.x), y(r.y), w(r.w), h(r.w){}
+	explicit Rect(const SDL_Rect & r) : x(r.x), y(r.y), w(r.w), h(r.h){}
 
 	Rect Normalised()
 	{
