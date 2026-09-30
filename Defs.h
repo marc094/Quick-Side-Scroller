@@ -25,8 +25,6 @@
 #endif
 #define MAX_MASS 10000000000
 #define MIN_MASS 100000000
-#define MIN_DIAMETRE 3
-#define MAX_DIAMETRE 10
 #define MAX_DENSITY 500000000
 #define MIN_DENSITY 5000000
 #define MAX_CIRCLE_POINTS 360
@@ -37,7 +35,6 @@
 #define SPAWN_RADIUS (sint)5000
 #define TRAIL_LENGTH 2048
 #define TRAIL_UPDATE_FREQUENCY 20
-#define STARTING_SPEED_MAGNITUDE 2000000000
 #define CAMERA_CULLING_MARGIN 0
 #define VELOCITY_VECTOR_SCALE 3
 #define G_FORCE_STRENGTH 100000000000.
@@ -83,13 +80,8 @@ typedef float scalar;
 typedef double scalar;
 #endif
 
-#define SET_GET(memberVar, type) public: type Get_##memberVar(){return memberVar;} public: void Set_##memberVar(type p){memberVar = p;}
-#define ENC_VAR(access, type, memberVar) access: type memberVar; SET_GET(##memberVar, ##type)
-//#define ARR_DECL(type,  capacity) (type*)malloc(sizeof(type) * (capacity))
-//#define ARR_FREE(pointer) free(pointer)
 #define ARR_DECL(type, capacity) new type[capacity]
 #define ARR_FREE(pointer) delete[](pointer)
 
-#define LOCAL_ARR_DECL(type, name, capacity) type name[capacity]
 
 #endif

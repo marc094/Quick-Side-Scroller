@@ -13,7 +13,6 @@ add_executable(qss
   main.cpp
   Application.cpp
   Camera.cpp
-  InputDevice.cpp
   PhysBody.cpp
   QuadTree.cpp
   Timer.cpp

@@ -47,12 +47,6 @@ bool Utils::IntersectRect(const iRect & a, const iRect & b)
 		return false;
 	}
 	return true;
-	/*if ((a.x >= b.x && a.x <= b.x + b.w && a.y >= b.y && a.y <= b.y + b.h)
-		|| (b.x >= a.x && b.x <= a.x + a.w && b.y >= a.y && b.y <= a.y + a.h))
-	{
-		return true;
-	}
-	return false;*/
 }
 
 scalar Utils::Clamp(scalar s, scalar minimum, scalar maximum)

@@ -1,7 +1,5 @@
 #ifndef __MAIN__
 #define __MAIN__
-//#include "SDL_image\include\SDL_image.h"
-//#include "SDL_mixer\include\SDL_mixer.h"
 
 #ifdef _MSC_VER
 #ifdef _WIN64
@@ -12,12 +10,6 @@
 #pragma comment( lib, "SDL/lib/x86/SDL2main.lib" )
 #endif
 #endif
-/*#pragma comment( lib, "SDL_image/libx86/SDL2_image.lib" )
-#pragma comment( lib, "SDL_mixer/libx86/SDL2_mixer.lib" )*/
-
-/*#ifdef main
-#undef main
-#endif*/
 
 #include "Application.h"
 #include "Platform.h"

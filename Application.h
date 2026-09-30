@@ -53,8 +53,6 @@ private:
 	SDL_Window* window = null;
 	SDL_Renderer* renderer = null;
 	PhysBody* rocks = nullptr;
-	//std::list<PhysBody*> rocks;
-	//std::list<PhysBody*> trash;
 	Timer frameTimeTimer;
 	bool G_FORCE = false;
 	scalar timescale = INITIAL_TIME_SCALE;

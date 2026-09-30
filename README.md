@@ -1,10 +1,28 @@
 # QSS - Quick Side Scroller
 
-Simplistic side scroller made with SDL for educational purposes.
+Started as a simplistic SDL side scroller for educational purposes and has turned into a 2D gravity sandbox:
+thousands of bodies attract each other (Barnes-Hut quadtree) and merge when they collide.
 
 ![screenshot](/Docs/screenshot.png)
 
 QSS is maintained at https://github.com/d0n3val/Quick-Side-Scroller
+
+## Controls
+
+| Input | Action |
+|---|---|
+| Space | Pause / resume |
+| Q | Advance one step while paused |
+| Numpad + / - | Increase / decrease time scale (E resets to 0.1) |
+| Mouse wheel | Zoom |
+| Middle mouse drag, WASD | Pan |
+| Left mouse drag | Select a body to follow (shows velocity vector and trail) |
+| Right mouse | Respawn a removed body at the cursor |
+| B | Follow the heaviest body |
+| F | Reset zoom |
+| G (held) | Pull everything towards the screen centre |
+| R | Reset |
+| Esc | Quit |
 
 ## Building
 

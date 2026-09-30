@@ -3,7 +3,6 @@
 
 #include "Defs.h"
 #include "Platform.h"
-//#include "Utils.h"
 
 template<class TYPE>
 struct vec2
@@ -109,23 +108,17 @@ struct vec2
 
 	void Lerp(vec2 end, scalar t)
 	{
-		//t = Utils::Clamp01(t);
 		*this = *this + (end - *this) * t;
-		/*x = x + (end.x - x) * t;
-		y = y + (end.y - y) * t;*/
 	}
 
 	static vec2 sLerp(vec2 start, vec2 end, scalar t)
 	{
-		//t = Utils::Clamp01(t);
 		return start + (end - start) * t;
 	}
 
 	void LerpUnclamped(vec2 end, scalar t)
 	{
 		*this = *this + (end - *this) * t;
-		/*x = x + (end.x - x) * t;
-		y = y + (end.y - y) * t;*/
 	}
 
 	static vec2 sLerpUnclamped(vec2 start, vec2 end, scalar t)
